@@ -24,6 +24,9 @@ def test_capability_map_keeps_image_export_non_mutating(tmp_path: Path) -> None:
     result = capability_map(project=project, display=":4.0")
     assert result["aedt.layout_export_image"]["mutates"] is False
     assert "exported image hash" in result["aedt.layout_export_image"]["evidence"]
+    transaction = result["aedt.hfss3dlayout_native_transaction"]
+    assert transaction["mutates"] is True
+    assert "fresh-session reopen assertions" in transaction["evidence"]
 
 
 def test_live_capability_requires_complete_layout_bundle(tmp_path: Path) -> None:

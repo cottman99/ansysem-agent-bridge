@@ -11,14 +11,16 @@ from typing import Any
 
 from . import __version__
 from .capabilities import capability_map
-from .config import agent_home, load_config, upsert_instance
+from .config import agent_home, load_config, remove_profile, upsert_instance, upsert_profile
 from .discovery import _instance_id, discover_installations, select_installation
 from .docs_backend import docs_status, get_doc, query_docs
 from .live_probe import live_hfss3dlayout_probe
 from .operations import export_layout_image
+from .profiles import ensure_profile_process, parse_assignment, profile_status
 from .project_bundle import inspect_project_bundle
 from .runtime import runtime_snapshot
 from .skill_installer import install_skills, skill_status, uninstall_skills
+from .transaction import execute_operation_plan, load_operation_plan
 
 
 def _emit(payload: Any, *, pretty: bool) -> None:
@@ -66,7 +68,7 @@ def _setup(args: argparse.Namespace) -> dict[str, Any]:
     config = upsert_instance(record, make_default=not args.no_default)
     skills = {"status": "skipped"}
     if not args.skip_skill:
-        skills = install_skills("all", target=args.skill_target, force=args.force_skill)
+        skills = install_skills("bridge", target=args.skill_target, force=args.force_skill)
     return {
         "status": "ready" if skills.get("status") in {"ready", "skipped"} else "attention_required",
         "instance": record,
@@ -75,10 +77,16 @@ def _setup(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def _doctor() -> dict[str, Any]:
+def _doctor(profile: str | None = None) -> dict[str, Any]:
     records = [item.to_dict() for item in discover_installations()]
+    runtime_profile: dict[str, Any] | None = None
+    selected_profile = profile or load_config().get("default_profile")
+    if selected_profile:
+        runtime_profile = profile_status(selected_profile)
     return {
-        "status": "ready" if records else "attention_required",
+        "status": "ready"
+        if records and (runtime_profile is None or runtime_profile["status"] == "ready")
+        else "attention_required",
         "version": __version__,
         "python": sys.version.split()[0],
         "platform": platform.platform(),
@@ -88,7 +96,21 @@ def _doctor() -> dict[str, Any]:
         "pyaedt_available": importlib.util.find_spec("ansys.aedt.core") is not None,
         "pyedb_available": importlib.util.find_spec("pyedb") is not None,
         "instances": records,
+        "runtime_profile": runtime_profile,
         "skills": skill_status("all"),
+    }
+
+
+def _profile_record(args: argparse.Namespace) -> dict[str, Any]:
+    environment = dict(parse_assignment(item) for item in args.env)
+    prepend_environment = dict(parse_assignment(item) for item in args.prepend_env)
+    return {
+        "profile_id": args.profile_id,
+        "python_executable": str(Path(os.path.abspath(Path(args.python).expanduser()))),
+        "display": args.display,
+        "environment": environment,
+        "prepend_environment": prepend_environment,
+        "python_paths": [str(Path(item).expanduser().resolve()) for item in args.python_path],
     }
 
 
@@ -98,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"ansysem-agent {__version__}")
     parser.add_argument("--pretty", action="store_true")
+    parser.add_argument("--profile")
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("doctor")
@@ -114,6 +137,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     instances = commands.add_parser("instances")
     instances.add_argument("action", choices=("list",))
+
+    profiles = commands.add_parser("profiles")
+    profile_sub = profiles.add_subparsers(dest="profile_command", required=True)
+    profile_sub.add_parser("list")
+    profile_show = profile_sub.add_parser("show")
+    profile_show.add_argument("profile_id", nargs="?")
+    profile_set = profile_sub.add_parser("set")
+    profile_set.add_argument("--profile-id", required=True)
+    profile_set.add_argument("--python", required=True)
+    profile_set.add_argument("--display")
+    profile_set.add_argument("--env", action="append", default=[])
+    profile_set.add_argument("--prepend-env", action="append", default=[])
+    profile_set.add_argument("--python-path", action="append", default=[])
+    profile_set.add_argument("--no-default", action="store_true")
+    profile_remove = profile_sub.add_parser("remove")
+    profile_remove.add_argument("profile_id")
 
     project = commands.add_parser("project")
     project_sub = project.add_subparsers(dest="project_command", required=True)
@@ -155,6 +194,12 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--height", type=int, default=1000)
     export.add_argument("--redact-paths", action="store_true")
 
+    model = commands.add_parser("model")
+    model_sub = model.add_subparsers(dest="model_command", required=True)
+    apply = model_sub.add_parser("apply")
+    apply.add_argument("--plan", required=True)
+    apply.add_argument("--redact-paths", action="store_true")
+
     docs = commands.add_parser("docs")
     docs_sub = docs.add_subparsers(dest="docs_command", required=True)
     docs_status_parser = docs_sub.add_parser("status")
@@ -190,13 +235,37 @@ def build_parser() -> argparse.ArgumentParser:
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "doctor":
-        return _doctor()
+        return _doctor(args.profile)
     if args.command == "setup":
         return _setup(args)
     if args.command == "instances":
         return {
             "status": "ready",
             "instances": [item.to_dict() for item in discover_installations()],
+        }
+    if args.command == "profiles":
+        if args.profile_command == "list":
+            config = load_config()
+            return {
+                "status": "ready",
+                "default_profile": config.get("default_profile"),
+                "profiles": config.get("profiles", []),
+            }
+        if args.profile_command == "show":
+            return profile_status(args.profile_id)
+        if args.profile_command == "set":
+            record = _profile_record(args)
+            config = upsert_profile(record, make_default=not args.no_default)
+            return {
+                "status": "ready",
+                "profile": record,
+                "default_profile": config.get("default_profile"),
+            }
+        config = remove_profile(args.profile_id)
+        return {
+            "status": "removed",
+            "profile_id": args.profile_id,
+            "default_profile": config.get("default_profile"),
         }
     if args.command == "project":
         result = inspect_project_bundle(args.project, redact_paths=args.redact_paths)
@@ -254,6 +323,16 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             height=args.height,
             redact_paths=args.redact_paths,
         )
+    if args.command == "model":
+        plan = load_operation_plan(args.plan)
+        plan_profile = plan.get("profile")
+        if args.profile and plan_profile and args.profile != plan_profile:
+            raise ValueError(
+                f"Profile mismatch: command={args.profile} plan={plan_profile}"
+            )
+        if args.redact_paths:
+            plan["redact_paths"] = True
+        return execute_operation_plan(plan)
     if args.command == "docs":
         root = _docs_root(args.docs_root, args.instance)
         if args.docs_command in {"status", "ensure"}:
@@ -272,10 +351,27 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     raise ValueError(f"Unsupported command: {args.command}")
 
 
+def _exit_code(payload: dict[str, Any]) -> int:
+    return 0 if payload.get("status") in {"ready", "passed", "preserved", "removed"} else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    effective_argv = list(argv) if argv is not None else sys.argv[1:]
+    args = parser.parse_args(effective_argv)
     try:
+        selected_profile = args.profile
+        if args.command == "model" and not selected_profile:
+            selected_profile = load_operation_plan(args.plan).get("profile")
+        needs_profile = (
+            args.command in {"layout", "model"}
+            or args.command == "runtime-snapshot"
+            and args.live
+            or args.command == "capabilities"
+            and bool(selected_profile)
+        )
+        if needs_profile:
+            ensure_profile_process(selected_profile, effective_argv)
         payload = dispatch(args)
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         payload = {
@@ -287,7 +383,7 @@ def main(argv: list[str] | None = None) -> int:
             ],
         }
     _emit(payload, pretty=args.pretty)
-    return 0 if payload.get("status") in {"ready", "passed", "preserved", "removed"} else 1
+    return _exit_code(payload)
 
 
 if __name__ == "__main__":

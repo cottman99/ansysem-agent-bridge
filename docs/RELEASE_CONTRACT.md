@@ -3,9 +3,10 @@
 ## Product promise
 
 A user can install one package, configure an explicit AEDT installation and
-optional private documentation root, install two mutually routing Skills,
-inspect an exact project bundle, read capability state, and run a bounded live
-HFSS 3D Layout identity or image-export gate on the AEDT host.
+optional private documentation root, install one required Bridge Skill,
+inspect an exact project bundle, read capability state, run a bounded live HFSS
+3D Layout identity or image-export gate, and apply a registered typed mutation
+to a new output bundle on the AEDT host. The documentation Skill is optional.
 
 ## Public boundary
 
@@ -18,7 +19,8 @@ synthetic and independently redistributable.
 
 - clean wheel installation;
 - CLI and schema tests;
-- two-Skill installation, conflict, preservation, and uninstall tests;
+- required-Bridge-Skill installation plus optional documentation-Skill conflict,
+  preservation, and uninstall tests;
 - no private absolute paths or customer identifiers in tracked files;
 - no `.aedt`, `.aedb`, customer input, or vendor manual in the release;
 - Linux live validation on an explicitly named supported AEDT release;
@@ -27,6 +29,7 @@ synthetic and independently redistributable.
 
 ## Deliberately unclaimed
 
-The first alpha does not claim complete HFSS, Maxwell, Q3D, SIwave, Icepak,
-Circuit, Twin Builder, port construction, stackup editing, meshing, solving,
-or general GUI automation.
+The alpha does not claim complete HFSS, Maxwell, Q3D, SIwave, Icepak, Circuit,
+Twin Builder, arbitrary port construction, stackup editing, meshing, solving,
+packaging, publishing, release creation, or general GUI automation. The typed
+HFSS 3D Layout transaction is limited to its versioned operation-plan schema.

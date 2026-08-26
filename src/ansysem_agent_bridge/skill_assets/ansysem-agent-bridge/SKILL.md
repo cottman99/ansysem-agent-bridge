@@ -1,6 +1,6 @@
 ---
 name: ansysem-agent-bridge
-description: "Inspect and operate an exact local or SSH-hosted Ansys Electronics Desktop target through the installed ansysem-agent Bridge. Use for Bridge setup and diagnosis, AEDT installation selection, project-bundle checks, runtime snapshots, capability discovery, bounded HFSS 3D Layout readback or image export, and safe session handling. Route documentation-only AEDT, PyAEDT, PyEDB, HFSS, Maxwell, Q3D, or SIwave questions to ansysem-kb-docs."
+description: "Inspect and operate an exact local or SSH-hosted Ansys Electronics Desktop target through the installed ansysem-agent Bridge. Use for Bridge setup and diagnosis, runtime profiles, project-bundle checks, runtime snapshots, capability discovery, bounded HFSS 3D Layout readback, typed non-overwriting transactions, image export, and safe session handling. Route documentation-only questions to ansysem-kb-docs when that optional Skill is installed."
 ---
 
 # AnsysEM Agent Bridge
@@ -27,6 +27,13 @@ ansysem-agent --pretty doctor
 ansysem-agent --pretty instances list
 ansysem-agent --pretty project inspect --project <exact.aedt>
 ansysem-agent --pretty runtime-snapshot --project <exact.aedt> --version <version>
+```
+
+Before live mutation, require one named profile whose exact Python, display,
+module paths, and environment are ready:
+
+```text
+ansysem-agent --pretty profiles show <profile-id>
 ```
 
 Preserve these identities:
@@ -68,12 +75,32 @@ electrical, AEDT-validation, solver-input, or numerical gate as applicable.
 Image export is presentation evidence only:
 
 ```text
-ansysem-agent --pretty layout export-image \
+ansysem-agent --pretty --profile <profile-id> layout export-image \
   --project <exact.aedt> --version <version> --output <new.png>
 ```
 
 Never overwrite customer input or publish local project paths, credentials,
 license details, vendor documentation, or customer artifacts.
+
+For a mutation, compile task-specific values into a project-local or disposable
+`ansysem-operation-plan/v1`. Do not put those values into this Skill or add a
+task-specific Bridge command. The plan may use only registered typed operations
+and assertions; it must name distinct source and output bundles and set
+`solve_requested` to false.
+
+```text
+ansysem-agent --pretty --profile <profile-id> \
+  model apply --plan <operation-plan.json> --redact-paths
+```
+
+Treat the operation as successful only when the result is `passed`, the source
+hashes are unchanged, the output bundle is complete, and every assertion passed
+after save, owned-session close, and a separate fresh reopen. A zero process
+exit code must agree with a successful JSON status.
+
+Stop after returning the exact identity, assertions, output hash, and evidence
+boundary. Do not solve, package, publish, create a release, or add extra visual
+assets unless the user explicitly requests that separate phase.
 
 ## Finish cleanly
 

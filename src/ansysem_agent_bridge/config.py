@@ -22,10 +22,18 @@ def config_path() -> Path:
 def load_config() -> dict[str, Any]:
     path = config_path()
     if not path.is_file():
-        return {"schema_version": 1, "instances": [], "default_instance": None}
+        return {
+            "schema_version": 1,
+            "instances": [],
+            "default_instance": None,
+            "profiles": [],
+            "default_profile": None,
+        }
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema_version") != 1 or not isinstance(data.get("instances"), list):
         raise ValueError(f"Unsupported AnsysEM Agent config: {path}")
+    data.setdefault("profiles", [])
+    data.setdefault("default_profile", None)
     return data
 
 
@@ -54,5 +62,33 @@ def upsert_instance(record: dict[str, Any], *, make_default: bool = True) -> dic
     data["instances"] = instances
     if make_default:
         data["default_instance"] = record["instance_id"]
+    save_config(data)
+    return data
+
+
+def upsert_profile(record: dict[str, Any], *, make_default: bool = True) -> dict[str, Any]:
+    data = load_config()
+    profiles = [
+        item for item in data["profiles"] if item.get("profile_id") != record["profile_id"]
+    ]
+    profiles.append(record)
+    profiles.sort(key=lambda item: str(item.get("profile_id") or ""))
+    data["profiles"] = profiles
+    if make_default:
+        data["default_profile"] = record["profile_id"]
+    save_config(data)
+    return data
+
+
+def remove_profile(profile_id: str) -> dict[str, Any]:
+    data = load_config()
+    before = len(data["profiles"])
+    data["profiles"] = [
+        item for item in data["profiles"] if item.get("profile_id") != profile_id
+    ]
+    if len(data["profiles"]) == before:
+        raise ValueError(f"Unknown runtime profile: {profile_id}")
+    if data.get("default_profile") == profile_id:
+        data["default_profile"] = None
     save_config(data)
     return data

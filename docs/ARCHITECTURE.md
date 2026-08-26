@@ -47,7 +47,9 @@ intent gate -> target resolver -> capability registry -> semantic operation
    interchangeable.
 6. **Lifecycle is owned.** A command closes only a session it created. It never
    force-kills an unverified process or silently discards another user's work.
-7. **Compact by default.** Runtime snapshots are revisioned; operations return
+7. **Persisted state before success.** Mutations use a new output bundle and
+   pass only after save, owned-session close, fresh reopen, and typed assertions.
+8. **Compact by default.** Runtime snapshots are revisioned; operations return
    counts and hashes instead of repeating full trees or logs.
 
 ## Route selection
@@ -67,20 +69,23 @@ GUI automation is therefore an explicit last lane, not an automatic fallback.
 
 ## Request lifecycle
 
-Every stateful semantic operation should pass these gates:
+Every stateful semantic operation passes these gates:
 
 1. resolve exact target and expected preconditions;
 2. inspect capability descriptor and authorization;
 3. compile intent into a typed adapter request;
-4. execute with an operation ID and bounded timeout;
-5. read back the affected state using the correct object-ID domain;
-6. run the required validation layer;
-7. return `ansysem-operation-result/v1` and clean up owned resources.
+4. copy the complete source bundle to an owned, non-overwriting staging path;
+5. execute with an operation ID and bounded registered adapter;
+6. save, close the owned session, and reopen in a separate fresh session;
+7. read back typed assertions using the correct object-ID domain;
+8. commit the new output bundle only after every assertion passes;
+9. return `ansysem-operation-result/v1` and clean up owned resources.
 
-The first alpha implements the read-only/static gates, live HFSS 3D Layout
-snapshot, and native layout image export. Geometry, ports, stackup, setup, and
-solve operations stay unclaimed until their typed request, idempotency rule,
-release adapter, readback, and validation are all present.
+The alpha implements the read-only/static gates, live HFSS 3D Layout snapshot,
+native layout image export, and one narrow transaction adapter. Its registered
+mutations are exact `BaseElementTab` property changes and semantic outer-edge
+gap-port creation with a typed reference patch. Arbitrary geometry, stackup,
+setup, solver, command, module, or Python execution remains unclaimed.
 
 ## Failure model
 

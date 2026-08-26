@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ansysem-agent-bridge"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Unofficial local-first agent bridge for Ansys Electronics Desktop"
 readme = "README.md"
 requires-python = ">=3.10"

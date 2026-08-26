@@ -9,12 +9,30 @@ identity, capability state, semantic operations, artifacts, and readback. It
 does not own Agent planning, project workflow policy, engineering memory, or
 knowledge promotion.
 
-The Bridge publishes four versioned contracts:
+The Bridge publishes five versioned contracts:
 
 - `ansysem-target-identity/v1`
 - `ansysem-runtime-snapshot/v1`
 - `ansysem-capability-descriptor/v1`
 - `ansysem-operation-result/v1`
+- `ansysem-operation-plan/v1`
+
+## Runtime profile rule
+
+A live mutation uses one named runtime profile that records the exact Python
+executable, graphical display, module paths, and bounded environment changes.
+The Bridge validates the interpreter entry point and, when needed, performs a
+controlled re-execution of its own fixed CLI so loader variables take effect
+before PyAEDT or AEDT libraries are imported. It accepts no shell command,
+module name, or arbitrary Python field from the caller.
+
+## Transaction rule
+
+A typed mutation never overwrites its source. The Bridge copies the complete
+project bundle to an owned staging area, applies only registered semantic
+operations, saves and closes its owned session, then verifies typed assertions
+after a separate fresh reopen. Only a passing bundle is moved to the new output
+path. Failure removes only transaction-owned staging and partial output.
 
 ## Target rule
 
