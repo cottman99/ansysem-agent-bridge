@@ -1,0 +1,5 @@
+interface:
+  display_name: "AnsysEM KB Docs"
+  short_description: "Find version-matched local AEDT documentation"
+  brand_color: "#2563EB"
+  default_prompt: "Use $ansysem-kb-docs to find version-matched evidence in my configured local AnsysEM documentation."

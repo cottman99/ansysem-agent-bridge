@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cottman99/ansysem-agent-bridge/schemas/ansysem-runtime-snapshot-v1.schema.json",
+  "title": "AnsysEM Runtime Snapshot v1",
+  "type": "object",
+  "required": ["schema_version", "captured_at", "state_revision", "changed", "identity"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "state_revision": {"type": "string", "minLength": 64, "maxLength": 64},
+    "changed": {"type": "boolean"},
+    "detail": {"enum": ["compact", "full"]},
+    "identity": {"type": "object"},
+    "state": {"type": "object"},
+    "recommended_safe_actions": {"type": "array", "items": {"type": "string"}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"changed": {"const": true}}},
+      "then": {"required": ["detail", "state", "recommended_safe_actions"]}
+    }
+  ]
+}

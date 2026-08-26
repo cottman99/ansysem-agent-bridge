@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+dist/
+build/
+.venv/
+.codex_tmp/
+.ansysem-agent/
+*.aedt
+*.aedt.lock
+*.aedb/
+*.aedtz
+*.log

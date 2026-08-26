@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cottman99/ansysem-agent-bridge/schemas/ansysem-target-identity-v1.schema.json",
+  "title": "AnsysEM Target Identity v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["host", "platform", "lane"],
+  "properties": {
+    "host": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "installation_id": {"type": ["string", "null"]},
+    "version": {"type": ["string", "null"]},
+    "display": {"type": ["string", "null"]},
+    "pid": {"type": ["integer", "null"], "minimum": 1},
+    "project_path": {"type": ["string", "null"]},
+    "project_name": {"type": ["string", "null"]},
+    "design_name": {"type": ["string", "null"]},
+    "editor": {"type": ["string", "null"]},
+    "lane": {
+      "enum": ["host", "docs", "pyaedt-live", "pyedb-offline", "native-aedt", "solver-batch", "gui-assist"]
+    }
+  }
+}

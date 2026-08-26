@@ -1,0 +1,5 @@
+interface:
+  display_name: "AnsysEM Agent Bridge"
+  short_description: "Inspect and operate an exact AEDT target safely"
+  brand_color: "#F59E0B"
+  default_prompt: "Use $ansysem-agent-bridge to inspect or operate my exact Ansys Electronics Desktop target safely."

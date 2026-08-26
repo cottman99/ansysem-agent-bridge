@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cottman99/ansysem-agent-bridge/schemas/ansysem-operation-result-v1.schema.json",
+  "title": "AnsysEM Operation Result v1",
+  "type": "object",
+  "required": ["schema_version", "operation", "status", "identity", "readback", "artifacts", "validation", "warnings"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "operation": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ready", "passed", "partial", "blocked", "failed"]},
+    "identity": {"type": "object"},
+    "readback": {"type": "object"},
+    "artifacts": {"type": "array", "items": {"type": "object"}},
+    "validation": {"type": "array", "items": {"type": "object"}},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "failure": {"type": ["object", "null"]},
+    "safe_next_actions": {"type": "array", "items": {"type": "string"}}
+  }
+}
