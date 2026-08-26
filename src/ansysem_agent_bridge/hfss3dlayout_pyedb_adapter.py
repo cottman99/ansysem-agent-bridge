@@ -35,10 +35,11 @@ def compile_apd_parameter_block(operation: dict[str, Any]) -> str:
     material = str(operation["material"]).replace("'", "").upper()
     name = str(operation["name"]).replace("'", "")
     forward = operation["direction"] == "forward"
+    native_field_count = len(segments) * 3
     return (
         f"bwd(nm='{name}', ven=false, for={'true' if forward else 'false'}, "
         f"dia='{diameter}', mat='{material}', col=0, vis=true, dih=0, "
-        f"nfc={len(segments)}, {', '.join(segments)})"
+        f"nfc={native_field_count}, {', '.join(segments)})"
     )
 
 
@@ -110,7 +111,7 @@ def _ensure_profile(edb: Any, operation: dict[str, Any]) -> dict[str, Any]:
         f"nm='{name}'",
         f"for={'true' if operation['direction'] == 'forward' else 'false'}",
         f"mat='{str(operation['material']).replace(chr(39), '').upper()}'",
-        f"nfc={len(operation['segments'])}",
+        f"nfc={len(operation['segments']) * 3}",
     )
     if not all(token in actual_block for token in required_tokens):
         raise RuntimeError(f"APD profile readback failed for {name}: {actual_block}")

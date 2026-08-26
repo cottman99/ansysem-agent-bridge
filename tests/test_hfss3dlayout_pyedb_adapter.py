@@ -37,6 +37,7 @@ def test_apd_compiler_uses_units_and_typed_segments() -> None:
     block = compile_apd_parameter_block(_profile())
     assert "dia='25.4um'" in block
     assert "for=true" in block
+    assert "nfc=6" in block
     assert "vt=0, vv=0.0002286" in block
     assert "ht=1, hv=0.55" in block
 
