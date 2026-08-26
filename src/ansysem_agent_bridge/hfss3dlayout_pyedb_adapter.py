@@ -431,12 +431,20 @@ class Hfss3dLayoutPyedbNativeAdapter:
             ports = _all_ports(native.oeditor, native.odesign.GetModule("Excitations"))
             setups = sorted(str(item) for item in native.setup_names)
             geometry = _geometry_check(native)
+            port_properties = {}
+            for assertion in plan["assertions"]:
+                if assertion["type"] in {"port_property_equals", "port_property_contains"}:
+                    port = str(assertion["port"])
+                    prop = str(assertion["property"])
+                    excitation = native.odesign.GetChildObject("Excitations").GetChildObject(port)
+                    port_properties.setdefault(port, {})[prop] = excitation.GetPropValue(prop)
             native_context = {
                 "design": native.design_name,
                 "display": os.environ.get("DISPLAY"),
                 "ports": ports,
                 "setups": setups,
                 "geometry": geometry,
+                "port_properties": port_properties,
             }
         finally:
             native.release_desktop(close_projects=True, close_desktop=True)
@@ -461,6 +469,7 @@ class Hfss3dLayoutPyedbNativeAdapter:
                 "design": native_context["design"],
                 "display": native_context["display"],
                 "port_count": len(native_context["ports"]),
+                "port_properties": native_context["port_properties"],
                 "setup_count": len(native_context["setups"]),
                 "bondwire_count": len(readback_wires),
                 "bondwires": readback_wires,
@@ -581,6 +590,17 @@ class Hfss3dLayoutPyedbNativeAdapter:
         elif kind == "required_ports":
             expected = sorted(assertion["value"])
             actual = sorted(name for name in native["ports"] if name in expected)
+        elif kind in {"port_property_equals", "port_property_contains"}:
+            actual = native["port_properties"][assertion["port"]][assertion["property"]]
+            expected = assertion["value"]
+            if kind == "port_property_contains":
+                return _record(
+                    assertion,
+                    kind,
+                    all(str(token) in str(actual) for token in expected),
+                    expected,
+                    actual,
+                )
         elif kind == "setup_count":
             actual, expected = len(native["setups"]), assertion["value"]
         elif kind == "required_setups":
