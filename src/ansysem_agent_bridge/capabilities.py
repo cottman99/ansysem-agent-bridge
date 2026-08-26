@@ -225,6 +225,60 @@ def capability_descriptors(
             ),
             evidence=("EDB open/readback",),
         ),
+        CapabilityDescriptor(
+            capability_id="aedt.hfss3dlayout_bondwire_transaction",
+            category="model",
+            safety="bounded",
+            lanes=("pyedb-offline", "native-aedt", "pyaedt-live"),
+            mutates=True,
+            latency_class="moderate",
+            requirements=(
+                "runtime profile",
+                "PyEDB and PyAEDT",
+                "complete source project bundle",
+                "new output path",
+                "typed bondwire operation plan",
+                "fresh-reopen assertions",
+            ),
+            state=CapabilityState(
+                True,
+                pyaedt_ready and pyedb_ready,
+                pyaedt_ready and pyedb_ready and project_ready,
+                bool(active_display) or os.name == "nt",
+                True,
+                None
+                if pyaedt_ready
+                and pyedb_ready
+                and project_ready
+                and (active_display or os.name == "nt")
+                else "PyEDB, PyAEDT, a complete source bundle, and a display are required.",
+                tuple(
+                    action
+                    for condition, action in (
+                        (
+                            not (pyaedt_ready and pyedb_ready),
+                            "Select a profile whose Python imports PyEDB and PyAEDT.",
+                        ),
+                        (
+                            not project_ready,
+                            "Provide the exact .aedt file with its matching .aedb/edb.def bundle.",
+                        ),
+                        (
+                            not active_display and os.name != "nt",
+                            "Select a runtime profile with the intended DISPLAY.",
+                        ),
+                    )
+                    if condition
+                ),
+            ),
+            evidence=(
+                "expected source fingerprints and unchanged source bundle",
+                "typed APD profile and exact-before wire changes",
+                "fresh AEDT and PyEDB reopen assertions",
+                "complete non-overwriting output bundle",
+                "explicit no-solve boundary",
+            ),
+        ),
     ]
 
 

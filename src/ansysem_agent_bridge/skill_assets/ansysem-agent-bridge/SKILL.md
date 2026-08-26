@@ -86,7 +86,10 @@ For a mutation, compile task-specific values into a project-local or disposable
 `ansysem-operation-plan/v1`. Do not put those values into this Skill or add a
 task-specific Bridge command. The plan may use only registered typed operations
 and assertions; it must name distinct source and output bundles and set
-`solve_requested` to false.
+`solve_requested` to false. For bondwire work, pin the expected `.aedt` and
+`edb.def` hashes, use the PyEDB-native adapter, supply exact `expected_before`
+state, and express APD profiles only as typed direction, diameter, material,
+and segment fields. Never place a raw APD block or vendor call in the plan.
 
 ```text
 ansysem-agent --pretty --profile <profile-id> \
@@ -95,8 +98,9 @@ ansysem-agent --pretty --profile <profile-id> \
 
 Treat the operation as successful only when the result is `passed`, the source
 hashes are unchanged, the output bundle is complete, and every assertion passed
-after save, owned-session close, and a separate fresh reopen. A zero process
-exit code must agree with a successful JSON status.
+after save, owned-session close, and separate fresh AEDT and PyEDB reopens when
+that adapter is selected. A zero process exit code must agree with a successful
+JSON status.
 
 Stop after returning the exact identity, assertions, output hash, and evidence
 boundary. Do not solve, package, publish, create a release, or add extra visual

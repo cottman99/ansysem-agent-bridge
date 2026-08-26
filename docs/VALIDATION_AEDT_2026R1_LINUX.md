@@ -1,8 +1,9 @@
 # AEDT 2026 R1 Linux acceptance
 
-Date: 2026-08-26
-Release candidates: `0.1.0a1` for read/export and `0.1.0a2` for typed transactions
-Environment: Linux, AEDT 2026.1.0, PyAEDT 1.4.0, Python 3.11
+Date: 2026-08-27
+Release candidates: `0.1.0a1` for read/export, `0.1.0a2` for native typed
+transactions, and `0.1.0a3` for typed bondwire transactions
+Environment: Linux, AEDT 2026.1.0, PyAEDT 1.4.0, PyEDB 0.82.0, Python 3.11
 
 ## Public-safe result
 
@@ -51,6 +52,25 @@ now captures identity and readback before optional validation, preserves that
 evidence if validation raises, and reports `attention_required` instead of
 collapsing the entire snapshot into an opaque error.
 
+## Typed bondwire acceptance (`0.1.0a3`)
+
+A disposable private-project copy exercised `hfss3dlayout.pyedb-native/v1`
+with synthetic operation and profile names. It compiled one structured APD
+profile, changed one exact-name wire without moving its endpoints, saved and
+closed PyEDB and AEDT, then passed nine assertions after fresh AEDT and PyEDB
+reopens. The source fingerprint and full source bundle remained unchanged; the
+temporary plan, result, and output were removed after inspection.
+
+| Gate | Result |
+| --- | --- |
+| Expected `.aedt` and `edb.def` fingerprints | Passed |
+| Structured APD profile; no raw parameter block | Passed |
+| Exact-name wire and `expected_before` precondition | Passed |
+| Type, profile, diameter, material, endpoints, and projected length readback | Passed |
+| Fresh AEDT design/display/port/setup and clean geometry check | Passed |
+| Fresh PyEDB wire count, profile height, and persisted properties | Passed |
+| Source unchanged, output complete, no solve or packaging | Passed |
+
 ## Privacy boundary
 
 The public repository contains no acceptance project, screenshot, raw AEDT
@@ -61,7 +81,7 @@ copies were deleted after hash and visual checks.
 ## Claim boundary
 
 This acceptance supports the live identity, compact readback, native image
-export, narrow typed property/gap-port transaction, persistence, and safe
-lifecycle claims for the tested release. It does not support claims about
-arbitrary editing, electrical correctness, mesh generation, convergence,
+export, narrow typed property/gap-port and bondwire transactions, persistence,
+and safe lifecycle claims for the tested release. It does not support claims
+about arbitrary editing, electrical correctness, mesh generation, convergence,
 numerical results, or solve operations.

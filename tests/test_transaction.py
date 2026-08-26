@@ -111,3 +111,79 @@ def test_transaction_refuses_solve_request(tmp_path: Path) -> None:
     plan["solve_requested"] = True
     with pytest.raises(ValueError, match="do not run solves"):
         validate_operation_plan(plan)
+
+
+def _bondwire_plan(source: Path, output: Path) -> dict[str, Any]:
+    plan = _plan(source, output)
+    plan["adapter"] = "hfss3dlayout.pyedb-native/v1"
+    plan["operations"] = [
+        {
+            "type": "ensure_apd_bondwire_profile",
+            "name": "SYNTHETIC_LH8_RUN50",
+            "direction": "forward",
+            "diameter_um": 25.4,
+            "material": "Gold",
+            "segments": [
+                {
+                    "horizontal_mode": "absolute_um",
+                    "horizontal_value": 0,
+                    "vertical_mode": "absolute_um",
+                    "vertical_value": 203.2,
+                },
+                {
+                    "horizontal_mode": "fraction",
+                    "horizontal_value": 0.5,
+                    "vertical_mode": "absolute_um",
+                    "vertical_value": 0,
+                },
+            ],
+        },
+        {
+            "type": "set_bondwire",
+            "name": "BW_SYNTHETIC",
+            "expected_before": {"bondwire_type": "jedec4"},
+            "end_xy_um": [300.0, 0.0],
+            "bondwire_type": "apd",
+            "profile": "SYNTHETIC_LH8_RUN50",
+        },
+    ]
+    plan["assertions"] = [
+        {"type": "bondwire_count", "value": 1},
+        {
+            "type": "bondwire_projected_length",
+            "name": "BW_SYNTHETIC",
+            "value_um": 300.0,
+            "tolerance_um": 2.0,
+        },
+        {"type": "geometry_check_clean"},
+    ]
+    return plan
+
+
+def test_bondwire_plan_is_typed_and_rejects_raw_apd(tmp_path: Path) -> None:
+    plan = _bondwire_plan(_bundle(tmp_path), tmp_path / "new.aedt")
+    validate_operation_plan(plan)
+    plan["operations"][0]["parameter_block"] = "bwd(arbitrary=true)"
+    with pytest.raises(ValueError, match="unsupported fields"):
+        validate_operation_plan(plan)
+
+
+def test_bondwire_plan_requires_exact_before_state(tmp_path: Path) -> None:
+    plan = _bondwire_plan(_bundle(tmp_path), tmp_path / "new.aedt")
+    plan["operations"][1]["expected_before"] = {}
+    with pytest.raises(ValueError, match="non-empty"):
+        validate_operation_plan(plan)
+
+
+def test_source_fingerprint_mismatch_fails_before_staging(tmp_path: Path) -> None:
+    source = _bundle(tmp_path)
+    output = tmp_path / "new.aedt"
+    plan = _plan(source, output)
+    plan["source_fingerprint"] = {
+        "aedt_sha256": "0" * 64,
+        "edb_definition_sha256": "1" * 64,
+    }
+    with pytest.raises(ValueError, match="fingerprint mismatch"):
+        execute_operation_plan(plan, adapter=FakeAdapter())
+    assert not output.exists()
+    assert not list(tmp_path.glob(".ansysem-stage-*"))

@@ -45,7 +45,8 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
     for field in ("operation_id", "source_project", "output_project", "version", "design"):
         if not isinstance(plan[field], str) or not plan[field].strip():
             raise ValueError(f"Operation plan field {field} must be a non-empty string.")
-    if plan["adapter"] != "hfss3dlayout.native/v1":
+    adapters = {"hfss3dlayout.native/v1", "hfss3dlayout.pyedb-native/v1"}
+    if plan["adapter"] not in adapters:
         raise ValueError(f"Unsupported operation adapter: {plan['adapter']}")
     if plan.get("solve_requested", False) is not False:
         raise ValueError("Bridge transactions do not run solves; solve_requested must be false.")
@@ -58,11 +59,19 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
         "runtime",
         "solve_requested",
         "redact_paths",
+        "source_fingerprint",
     }
     extra = sorted(set(plan) - allowed_plan_keys)
     if extra:
         raise ValueError(f"Unsupported operation plan fields: {extra}")
-    operation_types = {"set_property", "create_gap_port"}
+    if "source_fingerprint" in plan:
+        _validate_source_fingerprint(plan["source_fingerprint"])
+    operation_types = {
+        "set_property",
+        "create_gap_port",
+        "ensure_apd_bondwire_profile",
+        "set_bondwire",
+    }
     assertion_types = {
         "property_equals",
         "same_property",
@@ -75,6 +84,14 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
         "port_property_contains",
         "design_equals",
         "display_equals",
+        "bondwire_matches",
+        "bondwire_projected_length",
+        "bondwire_profile_height",
+        "bondwire_endpoint_in_conductor",
+        "bondwire_obstacle_clearance",
+        "bondwire_pairwise_clearance",
+        "bondwire_count",
+        "geometry_check_clean",
     }
     for operation in plan["operations"]:
         if not isinstance(operation, dict) or operation.get("type") not in operation_types:
@@ -88,7 +105,7 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
             )
             if operation.get("tab", "BaseElementTab") != "BaseElementTab":
                 raise ValueError("set_property supports only BaseElementTab in v1.")
-        else:
+        elif operation["type"] == "create_gap_port":
             _validate_shape(
                 operation,
                 required={
@@ -134,6 +151,24 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
                 raise ValueError("create_gap_port contains unsupported settings.")
             if settings.get("HFSS Type", "Gap") != "Gap":
                 raise ValueError("create_gap_port HFSS Type must remain Gap.")
+        elif operation["type"] == "ensure_apd_bondwire_profile":
+            _validate_apd_profile(operation)
+        else:
+            _validate_set_bondwire(operation)
+    permitted_operations = {
+        "hfss3dlayout.native/v1": {"set_property", "create_gap_port"},
+        "hfss3dlayout.pyedb-native/v1": {
+            "ensure_apd_bondwire_profile",
+            "set_bondwire",
+        },
+    }[plan["adapter"]]
+    incompatible = sorted(
+        {operation["type"] for operation in plan["operations"]} - permitted_operations
+    )
+    if incompatible:
+        raise ValueError(
+            f"Operations {incompatible} are incompatible with adapter {plan['adapter']}."
+        )
     for assertion in plan["assertions"]:
         if not isinstance(assertion, dict) or assertion.get("type") not in assertion_types:
             raise ValueError(f"Unsupported typed assertion: {assertion!r}")
@@ -149,6 +184,14 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
             "port_property_contains": {"port", "property", "value"},
             "design_equals": {"value"},
             "display_equals": {"value"},
+            "bondwire_matches": {"name", "expected"},
+            "bondwire_projected_length": {"name", "value_um", "tolerance_um"},
+            "bondwire_profile_height": {"name", "value_um", "tolerance_um"},
+            "bondwire_endpoint_in_conductor": {"name", "endpoint", "conductor"},
+            "bondwire_obstacle_clearance": {"name", "obstacles", "minimum_um"},
+            "bondwire_pairwise_clearance": {"minimum_um"},
+            "bondwire_count": {"value"},
+            "geometry_check_clean": set(),
         }
         allowed_assertion = {
             "type",
@@ -161,6 +204,15 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
             "name",
             "port",
             "value",
+            "expected",
+            "value_um",
+            "tolerance_um",
+            "endpoint",
+            "conductor",
+            "obstacles",
+            "minimum_um",
+            "names",
+            "start_contact_exemption_um",
         }
         _validate_shape(
             assertion,
@@ -180,6 +232,121 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
             not isinstance(assertion["value"], int) or assertion["value"] < 0
         ):
             raise ValueError(f"{assertion['type']} value must be a non-negative integer.")
+        if assertion["type"] == "bondwire_count" and (
+            not isinstance(assertion["value"], int) or assertion["value"] < 0
+        ):
+            raise ValueError("bondwire_count value must be a non-negative integer.")
+        if assertion["type"] == "bondwire_endpoint_in_conductor" and assertion["endpoint"] not in {
+            "start",
+            "end",
+        }:
+            raise ValueError("bondwire endpoint must be start or end.")
+        if assertion["type"] == "bondwire_obstacle_clearance" and (
+            not isinstance(assertion["obstacles"], list) or not assertion["obstacles"]
+        ):
+            raise ValueError("bondwire_obstacle_clearance obstacles must be non-empty.")
+
+
+def _validate_source_fingerprint(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise ValueError("source_fingerprint must be an object.")
+    _validate_shape(
+        value,
+        required={"aedt_sha256", "edb_definition_sha256"},
+        allowed={"aedt_sha256", "edb_definition_sha256"},
+        label="source_fingerprint",
+    )
+    for key in ("aedt_sha256", "edb_definition_sha256"):
+        digest = value[key]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(char not in "0123456789abcdefABCDEF" for char in digest)
+        ):
+            raise ValueError(f"source_fingerprint {key} must be a SHA-256 hex digest.")
+
+
+def _validate_apd_profile(operation: dict[str, Any]) -> None:
+    _validate_shape(
+        operation,
+        required={"type", "name", "direction", "diameter_um", "material", "segments"},
+        allowed={"type", "name", "direction", "diameter_um", "material", "segments"},
+        label="ensure_apd_bondwire_profile",
+    )
+    if operation["direction"] not in {"forward", "reverse"}:
+        raise ValueError("APD direction must be forward or reverse.")
+    if not isinstance(operation["diameter_um"], (int, float)) or operation["diameter_um"] <= 0:
+        raise ValueError("APD diameter_um must be positive.")
+    if not isinstance(operation["segments"], list) or not operation["segments"]:
+        raise ValueError("APD segments must be a non-empty list.")
+    modes = {"absolute_um", "fraction", "angle_deg", "switch"}
+    for segment in operation["segments"]:
+        if not isinstance(segment, dict):
+            raise ValueError("Each APD segment must be an object.")
+        _validate_shape(
+            segment,
+            required={"horizontal_mode", "horizontal_value", "vertical_mode", "vertical_value"},
+            allowed={"horizontal_mode", "horizontal_value", "vertical_mode", "vertical_value"},
+            label="APD segment",
+        )
+        if segment["horizontal_mode"] not in modes or segment["vertical_mode"] not in modes:
+            raise ValueError("Unsupported APD segment mode.")
+        if not all(
+            isinstance(segment[key], (int, float)) for key in ("horizontal_value", "vertical_value")
+        ):
+            raise ValueError("APD segment values must be numeric.")
+
+
+def _validate_xy(value: Any, label: str) -> None:
+    if (
+        not isinstance(value, list)
+        or len(value) != 2
+        or not all(isinstance(item, (int, float)) for item in value)
+    ):
+        raise ValueError(f"{label} must be a two-number list in micrometres.")
+
+
+def _validate_set_bondwire(operation: dict[str, Any]) -> None:
+    _validate_shape(
+        operation,
+        required={"type", "name", "expected_before"},
+        allowed={
+            "type",
+            "name",
+            "expected_before",
+            "start_xy_um",
+            "end_xy_um",
+            "bondwire_type",
+            "profile",
+            "diameter_um",
+            "material",
+        },
+        label="set_bondwire",
+    )
+    expected = operation["expected_before"]
+    if not isinstance(expected, dict) or not expected:
+        raise ValueError("set_bondwire expected_before must be a non-empty object.")
+    allowed_state = {
+        "start_xy_um",
+        "end_xy_um",
+        "bondwire_type",
+        "profile",
+        "diameter_um",
+        "material",
+    }
+    if set(expected) - allowed_state:
+        raise ValueError("set_bondwire expected_before contains unsupported fields.")
+    for container in (operation, expected):
+        for key in ("start_xy_um", "end_xy_um"):
+            if key in container:
+                _validate_xy(container[key], key)
+    for container in (operation, expected):
+        if "bondwire_type" in container and container["bondwire_type"] not in {
+            "apd",
+            "jedec4",
+            "jedec5",
+        }:
+            raise ValueError("bondwire_type must be apd, jedec4, or jedec5.")
 
 
 def _validate_shape(
@@ -213,6 +380,10 @@ def _adapter_for(plan: dict[str, Any]) -> OperationAdapter:
         from .hfss3dlayout_adapter import Hfss3dLayoutNativeAdapter
 
         return Hfss3dLayoutNativeAdapter()
+    if plan["adapter"] == "hfss3dlayout.pyedb-native/v1":
+        from .hfss3dlayout_pyedb_adapter import Hfss3dLayoutPyedbNativeAdapter
+
+        return Hfss3dLayoutPyedbNativeAdapter()
     raise ValueError(f"Unsupported operation adapter: {plan['adapter']}")
 
 
@@ -232,6 +403,19 @@ def execute_operation_plan(
     source_state = inspect_project_bundle(source)
     if not source_state["bundle_complete"]:
         raise ValueError(f"Incomplete source project bundle: {source_state['reason']}")
+    expected_fingerprint = plan.get("source_fingerprint")
+    if expected_fingerprint:
+        actual_fingerprint = {
+            "aedt_sha256": sha256_file(source),
+            "edb_definition_sha256": sha256_file(source.with_suffix(".aedb") / "edb.def"),
+        }
+        if {key: str(value).casefold() for key, value in actual_fingerprint.items()} != {
+            key: str(value).casefold() for key, value in expected_fingerprint.items()
+        }:
+            raise ValueError(
+                "Source fingerprint mismatch; transaction refused before staging. "
+                f"Expected {expected_fingerprint}, found {actual_fingerprint}."
+            )
     if output.exists() or output.with_suffix(".aedb").exists():
         raise ValueError("Output project or matching .aedb already exists; overwrite is refused.")
     if not output.parent.is_dir():
@@ -288,9 +472,7 @@ def execute_operation_plan(
                 {
                     "path": output_state["project"],
                     "sha256": output_state["project_sha256"],
-                    "edb_definition_sha256": sha256_file(
-                        output.with_suffix(".aedb") / "edb.def"
-                    ),
+                    "edb_definition_sha256": sha256_file(output.with_suffix(".aedb") / "edb.def"),
                     "bundle_complete": output_state["bundle_complete"],
                 }
             ],

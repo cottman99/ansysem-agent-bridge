@@ -9,8 +9,9 @@
 | Read live HFSS 3D Layout identity | Bounded PyAEDT live probe | Validated on AEDT 2026.1.0 / PyAEDT 1.4.0 on Linux | Opens only an explicit complete project bundle and closes only its own new session |
 | Export an HFSS 3D Layout image | Native editor `ZoomToFit` and `ExportImage` behind a bounded adapter | Validated on AEDT 2026.1.0 / PyAEDT 1.4.0 on Linux | Image is presentation evidence only |
 | Apply a typed HFSS 3D Layout transaction | Named runtime profile plus non-overwriting copy, registered native operations, save/close, fresh reopen, and assertions | Validated on AEDT 2026.1.0 / PyAEDT 1.4.0 on Linux | Current v1 operations are exact property changes and semantic outer-edge gap-port creation; no solve or packaging |
+| Apply a typed bondwire transaction | Source fingerprints plus PyEDB mutation, AEDT save/close, fresh AEDT and PyEDB reopens, and geometric assertions | Validated on AEDT 2026.1.0 / PyAEDT 1.4.0 / PyEDB 0.82.0 on Linux | Structured APD profiles and exact-name bondwire changes only; no raw APD block, arbitrary call, solve, or packaging |
 | Query local version-matched documentation | Configured private corpus and bounded source references | Implemented | Documentation is not redistributed or treated as runtime proof |
-| Create or repair arbitrary ports, stackups, geometry, setups, or solves | Not claimed | Not claimed | The narrow typed transaction does not expose arbitrary vendor calls or imply general modeling support |
+| Create or repair arbitrary ports, stackups, geometry, setups, or solves | Not claimed | Not claimed | The typed transactions do not expose arbitrary vendor calls or imply general modeling support |
 | General GUI automation | Not claimed | Not claimed | No blind coordinate or screenshot-only success path |
 
 Unit tests protect public contracts and failure behavior. Real AEDT validation

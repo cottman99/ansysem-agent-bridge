@@ -47,8 +47,8 @@ policy without duplicating the Bridge transport or AEDT adapters.
 - native `ZoomToFit` plus `ExportImage` behind a checked image-export command;
 - named runtime profiles for the exact Python, display, module paths, and
   bounded environment changes;
-- non-overwriting HFSS 3D Layout transactions with registered typed operations,
-  save/close, fresh reopen, and assertions;
+- non-overwriting HFSS 3D Layout transactions with registered native and
+  PyEDB bondwire operations, save/close, fresh reopen, and assertions;
 - private local documentation query/get commands;
 - one required Bridge Skill and one optional documentation Skill;
 - conflict-safe Skill install, status, and uninstall.
@@ -153,11 +153,14 @@ ansysem-agent --pretty --profile aedt-2026r1-display4 \
 
 The v1 plan schema is
 [`ansysem-operation-plan-v1`](docs/schemas/ansysem-operation-plan-v1.schema.json).
-The Bridge refuses source/output identity, refuses an existing output, exposes
-no arbitrary command or Python field, and accepts only registered property and
-gap-port operations. It commits the output only after a separate fresh AEDT
-reopen passes all typed assertions. It never solves, packages, publishes, or
-creates a release as part of this command.
+The Bridge refuses source/output identity, refuses an existing output, can pin
+the source `.aedt` and `edb.def` hashes, and exposes no arbitrary command,
+Python, or raw APD block field. The native adapter accepts registered property
+and gap-port operations. The PyEDB-native adapter accepts only structured APD
+profile definitions and exact-name bondwire changes. It commits the output
+only after separate fresh AEDT and PyEDB reopens pass all typed assertions. It
+never solves, packages, publishes, or creates a release as part of this
+command.
 
 ## Documentation
 
