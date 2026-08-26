@@ -15,7 +15,7 @@ _NUMBER_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 
 def compile_apd_parameter_block(operation: dict[str, Any]) -> str:
     """Compile a typed APD profile without accepting executable or raw APD text."""
-    segments = []
+    segment_fields = []
     for item in operation["segments"]:
         horizontal = float(item["horizontal_value"])
         vertical = float(item["vertical_value"])
@@ -23,8 +23,8 @@ def compile_apd_parameter_block(operation: dict[str, Any]) -> str:
             horizontal *= 1e-6
         if item["vertical_mode"] == "absolute_um":
             vertical *= 1e-6
-        segments.append(
-            "seg(ht={ht}, hv={hv:.12g}, vt={vt}, vv={vv:.12g})".format(
+        segment_fields.append(
+            "ht={ht}, hv={hv:.12g}, vt={vt}, vv={vv:.12g}".format(
                 ht=_MODE_CODE[item["horizontal_mode"]],
                 hv=horizontal,
                 vt=_MODE_CODE[item["vertical_mode"]],
@@ -35,11 +35,11 @@ def compile_apd_parameter_block(operation: dict[str, Any]) -> str:
     material = str(operation["material"]).replace("'", "").upper()
     name = str(operation["name"]).replace("'", "")
     forward = operation["direction"] == "forward"
-    native_field_count = len(segments) * 3
+    native_field_count = len(segment_fields) * 3
     return (
         f"bwd(nm='{name}', ven=false, for={'true' if forward else 'false'}, "
         f"dia='{diameter}', mat='{material}', col=0, vis=true, dih=0, "
-        f"nfc={native_field_count}, {', '.join(segments)})"
+        f"nfc={native_field_count}, seg({', '.join(segment_fields)}))"
     )
 
 

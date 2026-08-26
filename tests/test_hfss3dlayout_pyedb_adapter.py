@@ -40,6 +40,8 @@ def test_apd_compiler_uses_units_and_typed_segments() -> None:
     assert "nfc=6" in block
     assert "vt=0, vv=0.0002286" in block
     assert "ht=1, hv=0.55" in block
+    assert block.count("seg(") == 1
+    assert "), seg(" not in block
 
 
 def test_endpoint_polygon_and_pair_clearance_geometry() -> None:
