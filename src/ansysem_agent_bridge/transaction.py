@@ -3,11 +3,18 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 import uuid
 from pathlib import Path
 from typing import Any, Protocol
 
-from .project_bundle import inspect_project_bundle, sha256_file
+from .project_bundle import (
+    bundle_content_sha256,
+    bundle_content_summary,
+    bundle_state_revision,
+    copy_project_bundle,
+    sync_directory,
+)
 
 
 class OperationAdapter(Protocol):
@@ -19,8 +26,13 @@ class OperationAdapter(Protocol):
 
 
 def load_operation_plan(path: str | Path) -> dict[str, Any]:
-    plan_path = Path(path).expanduser().resolve()
-    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    if str(path) == "-":
+        plan = json.loads(sys.stdin.read())
+    else:
+        plan_path = Path(path).expanduser().resolve()
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    if not isinstance(plan, dict):
+        raise ValueError("Operation plan must be a JSON object.")
     validate_operation_plan(plan)
     return plan
 
@@ -360,17 +372,9 @@ def _validate_shape(
         raise ValueError(f"{label} contains unsupported fields: {extra}")
 
 
-def _bundle_fingerprint(project: Path) -> dict[str, str]:
-    aedb = project.with_suffix(".aedb")
-    fingerprint = {project.name: sha256_file(project)}
-    for path in sorted(item for item in aedb.rglob("*") if item.is_file()):
-        fingerprint[f"{aedb.name}/{path.relative_to(aedb).as_posix()}"] = sha256_file(path)
-    return fingerprint
-
-
-def _source_unchanged(source: Path, expected: dict[str, str]) -> bool:
+def _source_unchanged(source: Path, expected: str) -> bool:
     try:
-        return _bundle_fingerprint(source) == expected
+        return bundle_content_sha256(source) == expected
     except OSError:
         return False
 
@@ -391,8 +395,23 @@ def _display_path(path: Path, *, redact: bool) -> str:
     return path.name if redact else str(path)
 
 
+def _stable_bundle_summary(project: Path) -> tuple[dict[str, str], str]:
+    """Hash a bundle only when its cheap state token stays unchanged."""
+
+    state_before = bundle_state_revision(project)
+    summary = bundle_content_summary(project)
+    state_after = bundle_state_revision(project)
+    if state_before != state_after:
+        raise RuntimeError(f"Project bundle changed while it was being hashed: {project}")
+    return summary, state_after
+
+
 def execute_operation_plan(
-    plan: dict[str, Any], *, adapter: OperationAdapter | None = None
+    plan: dict[str, Any],
+    *,
+    adapter: OperationAdapter | None = None,
+    expected_source_bundle_sha256: str | None = None,
+    staging_root: str | Path | None = None,
 ) -> dict[str, Any]:
     validate_operation_plan(plan)
     source = Path(plan["source_project"]).expanduser().resolve()
@@ -400,14 +419,14 @@ def execute_operation_plan(
     redact = bool(plan.get("redact_paths", False))
     if source == output:
         raise ValueError("source_project and output_project must differ.")
-    source_state = inspect_project_bundle(source)
-    if not source_state["bundle_complete"]:
-        raise ValueError(f"Incomplete source project bundle: {source_state['reason']}")
+    if output.is_relative_to(source.with_suffix(".aedb")):
+        raise ValueError("Output path must not be inside the frozen source EDB bundle.")
+    source_summary, _ = _stable_bundle_summary(source)
     expected_fingerprint = plan.get("source_fingerprint")
     if expected_fingerprint:
         actual_fingerprint = {
-            "aedt_sha256": sha256_file(source),
-            "edb_definition_sha256": sha256_file(source.with_suffix(".aedb") / "edb.def"),
+            "aedt_sha256": source_summary["aedt_sha256"],
+            "edb_definition_sha256": source_summary["edb_definition_sha256"],
         }
         if {key: str(value).casefold() for key, value in actual_fingerprint.items()} != {
             key: str(value).casefold() for key, value in expected_fingerprint.items()
@@ -427,28 +446,39 @@ def execute_operation_plan(
             "Adapter identity mismatch: "
             f"plan={plan['adapter']} runtime={selected_adapter.adapter_id}"
         )
-    source_before = _bundle_fingerprint(source)
-    stage_root = output.parent / f".ansysem-stage-{uuid.uuid4().hex}"
+    source_before = source_summary["bundle_sha256"]
+    if (
+        expected_source_bundle_sha256 is not None
+        and source_before.casefold() != expected_source_bundle_sha256.casefold()
+    ):
+        raise ValueError("Full source bundle digest mismatch; transaction refused before staging.")
+    if staging_root is None:
+        stage_root = output.parent / f".ansysem-stage-{uuid.uuid4().hex}"
+    else:
+        stage_root = Path(staging_root).expanduser().resolve()
+        if stage_root.parent != output.parent or not stage_root.name.startswith(".ansysem-stage-"):
+            raise ValueError("Internal staging root must be an owned sibling of the output.")
     staged_project = stage_root / output.name
     committed: list[Path] = []
     try:
         stage_root.mkdir()
-        shutil.copy2(source, staged_project)
-        shutil.copytree(source.with_suffix(".aedb"), staged_project.with_suffix(".aedb"))
+        copy_readback = copy_project_bundle(source, staged_project)
         apply_readback = selected_adapter.apply(staged_project, plan)
         verify_readback = selected_adapter.verify(staged_project, plan)
         validations = list(verify_readback.get("validation", []))
         if not validations or not all(item.get("passed") is True for item in validations):
             raise RuntimeError("One or more fresh-reopen assertions failed.")
-        source_after = _bundle_fingerprint(source)
-        if source_after != source_before:
+        source_after, _ = _stable_bundle_summary(source)
+        if source_after["bundle_sha256"] != source_before:
             raise RuntimeError("Source project bundle changed during the transaction.")
 
         os.replace(staged_project, output)
         committed.append(output)
         os.replace(staged_project.with_suffix(".aedb"), output.with_suffix(".aedb"))
         committed.append(output.with_suffix(".aedb"))
-        output_state = inspect_project_bundle(output, redact_paths=redact)
+        sync_directory(output.parent)
+        output_summary, _ = _stable_bundle_summary(output)
+        output_display_path = _display_path(output, redact=redact)
         return {
             "schema_version": 1,
             "operation": "model.apply_transaction",
@@ -462,18 +492,21 @@ def execute_operation_plan(
             },
             "readback": {
                 "apply": apply_readback,
+                "staging_copy": copy_readback,
                 "fresh_reopen": verify_readback.get("readback", {}),
                 "source_unchanged": True,
-                "output_bundle_complete": output_state["bundle_complete"],
+                "output_bundle_complete": True,
+                "output_bundle_sha256": output_summary["bundle_sha256"],
                 "solve_requested": False,
                 "solve_run": False,
             },
             "artifacts": [
                 {
-                    "path": output_state["project"],
-                    "sha256": output_state["project_sha256"],
-                    "edb_definition_sha256": sha256_file(output.with_suffix(".aedb") / "edb.def"),
-                    "bundle_complete": output_state["bundle_complete"],
+                    "path": output_display_path,
+                    "sha256": output_summary["aedt_sha256"],
+                    "edb_definition_sha256": output_summary["edb_definition_sha256"],
+                    "bundle_sha256": output_summary["bundle_sha256"],
+                    "bundle_complete": True,
                 }
             ],
             "validation": validations,

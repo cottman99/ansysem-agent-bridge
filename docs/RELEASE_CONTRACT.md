@@ -5,8 +5,11 @@
 A user can install one package, configure an explicit AEDT installation and
 optional private documentation root, install one required Bridge Skill,
 inspect an exact project bundle, read capability state, run a bounded live HFSS
-3D Layout identity or image-export gate, and apply a registered typed mutation
-to a new output bundle on the AEDT host. The documentation Skill is optional.
+3D Layout identity or image-export gate, apply a registered typed one-shot
+mutation, or iterate inside one candidate workspace and explicitly promote one
+clean-replayed output on the AEDT host. Candidate promotion persists an exact
+interruption-recovery intent before EDA starts. The documentation Skill is
+optional.
 
 ## Public boundary
 

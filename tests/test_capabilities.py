@@ -27,6 +27,9 @@ def test_capability_map_keeps_image_export_non_mutating(tmp_path: Path) -> None:
     transaction = result["aedt.hfss3dlayout_native_transaction"]
     assert transaction["mutates"] is True
     assert "fresh-session reopen assertions" in transaction["evidence"]
+    workspace = result["aedt.transaction_workspace"]
+    assert workspace["mutates"] is True
+    assert "clean replay from frozen source at explicit promotion" in workspace["evidence"]
 
 
 def test_live_capability_requires_complete_layout_bundle(tmp_path: Path) -> None:

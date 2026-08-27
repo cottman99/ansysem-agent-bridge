@@ -49,6 +49,8 @@ policy without duplicating the Bridge transport or AEDT adapters.
   bounded environment changes;
 - non-overwriting HFSS 3D Layout transactions with registered native and
   PyEDB bondwire operations, save/close, fresh reopen, and assertions;
+- resumable candidate workspaces with idempotent typed patches, internal
+  checkpoints, rollback, abort, and clean-replay promotion;
 - private local documentation query/get commands;
 - one required Bridge Skill and one optional documentation Skill;
 - conflict-safe Skill install, status, and uninstall.
@@ -141,10 +143,11 @@ ansysem-agent --pretty --profile aedt-2026r1-display4 \
 The image proves only that AEDT exported the named live editor state. It does
 not prove electrical correctness, solver input, mesh, convergence, or results.
 
-## Typed mutation transaction
+## Typed mutation paths
 
-Put task-specific names and values in a project-local or disposable operation
-plan, not in the Bridge or its Skill. Then run:
+Put task-specific names and values in project-local or streamed JSON, not in the
+Bridge or its Skill. Use one-shot `model apply` when the complete mutation and
+its final assertions are already known:
 
 ```console
 ansysem-agent --pretty --profile aedt-2026r1-display4 \
@@ -162,6 +165,52 @@ only after separate fresh AEDT and PyEDB reopens pass all typed assertions. It
 never solves, packages, publishes, or creates a release as part of this
 command.
 
+For iterative work, begin one candidate workspace for the task instead of
+creating a permanent model version for every attempt:
+
+```console
+ansysem-agent --pretty --profile aedt-2026r1-display4 \
+  model workspace begin \
+  --source /path/to/frozen.aedt \
+  --workspace /path/to/task-candidate \
+  --adapter hfss3dlayout.pyedb-native/v1 \
+  --version 2026.1 --design Layout1
+
+ansysem-agent --pretty --profile aedt-2026r1-display4 \
+  model workspace reconcile \
+  --workspace /path/to/task-candidate --plan - < patch.json
+```
+
+Each `ansysem-workspace-patch/v1` carries a stable `patch_id`, the last returned
+`expected_workspace_revision`, registered operations, and scoped assertions.
+An identical retry is preserved without another EDA call. A passing reconcile
+creates only an internal checkpoint. Use `status`, `rollback`, or `abort` on the
+same workspace; none creates a customer-facing model revision.
+
+Batch all compatible edits known from the same observation into one patch so a
+single save/close/fresh-reopen gate validates the cycle. Promotion records its
+intent before launching EDA: after interruption, the exact same request either
+verifies an already-complete output or safely removes only its owned partial
+output and staging directory before replaying.
+
+Create one immutable output only at the explicit gate:
+
+```console
+ansysem-agent --pretty --profile aedt-2026r1-display4 \
+  model workspace promote \
+  --workspace /path/to/task-candidate \
+  --expected-revision <workspace-revision> \
+  --promotion-id <stable-promotion-id> \
+  --output /path/to/revision.aedt
+```
+
+Promotion ignores the mutable candidate as a delivery source. It replays the
+typed journal from the frozen source, performs the final assertion registry in
+fresh sessions, verifies full bundle digests, and only then commits the output.
+An exact retry of a committed promotion returns `preserved` without another EDA
+call; output or retention-policy drift is rejected.
+See [candidate workspace lifecycle](docs/WORKSPACE_LIFECYCLE.md).
+
 ## Documentation
 
 ```console
@@ -177,7 +226,9 @@ a corpus configured on the user's machine.
 
 ## Remote topology
 
-Run `ansysem-agent` on the AEDT machine through SSH. Keep AEDT automation,
+Run `ansysem-agent` on the AEDT machine through SSH. JSON plans can be streamed
+over standard input, so a remote task does not need a new helper script or plan
+file for each correction. Keep AEDT automation,
 projects, documentation, and artifacts on that host unless the user explicitly
 exports a sanitized result. A public remote Bridge protocol and multi-client
 session lease service are not claimed.
@@ -189,6 +240,8 @@ session lease service are not claimed.
 - no `.aedt`-only claim for HFSS 3D Layout bundles;
 - no arbitrary Python execution in the default public interface;
 - no source overwrite and no successful mutation claim before fresh reopen;
+- no permanent model version for a candidate attempt; only explicit promotion
+  creates a delivery output;
 - no blind GUI coordinates or screenshot-only success;
 - no force-kill or silent discard of modified work;
 - no claim that documentation, a visible object, or an exported image proves a

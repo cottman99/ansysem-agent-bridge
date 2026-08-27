@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_public_schemas_are_valid_json_and_versioned() -> None:
     paths = sorted((REPO_ROOT / "docs" / "schemas").glob("*.schema.json"))
-    assert len(paths) == 5
+    assert len(paths) == 6
     for path in paths:
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["$schema"].endswith("2020-12/schema")
@@ -93,3 +93,35 @@ def test_operation_plan_schema_accepts_typed_bondwire_and_rejects_raw_block() ->
     profile["parameter_block"] = "bwd(raw=true)"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(plan, schema)
+
+
+def test_workspace_patch_schema_requires_revision_and_stable_assertion_ids() -> None:
+    schema = json.loads(
+        (REPO_ROOT / "docs" / "schemas" / "ansysem-workspace-patch-v1.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    patch = {
+        "schema_version": 1,
+        "patch_id": "synthetic-patch",
+        "expected_workspace_revision": "0" * 64,
+        "adapter": "hfss3dlayout.native/v1",
+        "version": "2026.1",
+        "design": "Layout1",
+        "operations": [
+            {"type": "set_property", "server": "trace", "property": "Net", "value": "SIG"}
+        ],
+        "assertions": [
+            {
+                "id": "trace.net",
+                "type": "property_equals",
+                "server": "trace",
+                "property": "Net",
+                "value": "SIG",
+            }
+        ],
+    }
+    jsonschema.validate(patch, schema)
+    patch["operations"] = [{"type": "run_python", "code": "print('no')"}]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(patch, schema)

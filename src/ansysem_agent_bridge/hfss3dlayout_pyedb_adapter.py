@@ -105,6 +105,8 @@ def _ensure_profile(edb: Any, operation: dict[str, Any]) -> dict[str, Any]:
     created = definition is None
     if definition is None:
         definition = ApdBondwireDef.create(edb, name)
+    elif str(definition.parameter_block) == parameter_block:
+        return {"type": operation["type"], "name": name, "created": False, "skipped": True}
     definition.parameter_block = parameter_block
     actual_block = str(definition.parameter_block)
     required_tokens = (
@@ -115,7 +117,12 @@ def _ensure_profile(edb: Any, operation: dict[str, Any]) -> dict[str, Any]:
     )
     if not all(token in actual_block for token in required_tokens):
         raise RuntimeError(f"APD profile readback failed for {name}: {actual_block}")
-    return {"type": operation["type"], "name": name, "created": created}
+    return {
+        "type": operation["type"],
+        "name": name,
+        "created": created,
+        "skipped": False,
+    }
 
 
 def _set_bondwire(edb: Any, operation: dict[str, Any]) -> dict[str, Any]:
@@ -124,8 +131,33 @@ def _set_bondwire(edb: Any, operation: dict[str, Any]) -> dict[str, Any]:
     if name not in wires:
         raise RuntimeError(f"Bondwire not found: {name}")
     wire = wires[name]
-    _assert_expected_before(wire, operation["expected_before"])
     before = _wire_state(wire)
+    desired = {
+        key: operation[key]
+        for key in (
+            "start_xy_um",
+            "end_xy_um",
+            "bondwire_type",
+            "profile",
+            "diameter_um",
+            "material",
+        )
+        if key in operation
+    }
+    if all(_close(before.get(key), value) for key, value in desired.items()):
+        unchanged_guards = {
+            key: value for key, value in operation["expected_before"].items() if key not in desired
+        }
+        if unchanged_guards:
+            _assert_expected_before(wire, unchanged_guards)
+        return {
+            "type": operation["type"],
+            "name": name,
+            "before": before,
+            "after": before,
+            "skipped": True,
+        }
+    _assert_expected_before(wire, operation["expected_before"])
     start = operation.get("start_xy_um", before["start_xy_um"])
     end = operation.get("end_xy_um", before["end_xy_um"])
     wire.core.set_traj(*(float(item) * 1e-6 for item in [*start, *end]))
@@ -150,7 +182,13 @@ def _set_bondwire(edb: Any, operation: dict[str, Any]) -> dict[str, Any]:
     ):
         if key in operation and not _close(after[key], operation[key]):
             raise RuntimeError(f"Bondwire readback failed for {name}.{key}: {after[key]!r}")
-    return {"type": operation["type"], "name": name, "before": before, "after": after}
+    return {
+        "type": operation["type"],
+        "name": name,
+        "before": before,
+        "after": after,
+        "skipped": False,
+    }
 
 
 def _parse_length_um(value: str) -> float:
@@ -424,7 +462,12 @@ class Hfss3dLayoutPyedbNativeAdapter:
                 raise RuntimeError("AEDT project save returned failure")
         finally:
             app.release_desktop(close_projects=True, close_desktop=True)
-        return {"operation_count": len(records), "operations": records}
+        return {
+            "operation_count": len(records),
+            "applied_count": sum(not item.get("skipped", False) for item in records),
+            "skipped_count": sum(item.get("skipped", False) for item in records),
+            "operations": records,
+        }
 
     def verify(self, project: Path, plan: dict[str, Any]) -> dict[str, Any]:
         native = Hfss3dLayoutNativeAdapter._open(project, plan)

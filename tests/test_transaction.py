@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import io
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from ansysem_agent_bridge.project_bundle import sha256_file
-from ansysem_agent_bridge.transaction import execute_operation_plan, validate_operation_plan
+from ansysem_agent_bridge.transaction import (
+    execute_operation_plan,
+    load_operation_plan,
+    validate_operation_plan,
+)
 
 
 def _bundle(root: Path, name: str = "source") -> Path:
@@ -75,6 +81,8 @@ def test_transaction_commits_only_after_fresh_verify(tmp_path: Path) -> None:
     assert (output.with_suffix(".aedb") / "edb.def").is_file()
     assert sha256_file(source) == source_hash
     assert result["readback"]["solve_run"] is False
+    assert len(result["readback"]["output_bundle_sha256"]) == 64
+    assert result["artifacts"][0]["bundle_sha256"] == result["readback"]["output_bundle_sha256"]
     assert not list(tmp_path.glob(".ansysem-stage-*"))
 
 
@@ -111,6 +119,13 @@ def test_transaction_refuses_solve_request(tmp_path: Path) -> None:
     plan["solve_requested"] = True
     with pytest.raises(ValueError, match="do not run solves"):
         validate_operation_plan(plan)
+
+
+def test_transaction_refuses_output_inside_source_bundle(tmp_path: Path) -> None:
+    source = _bundle(tmp_path)
+    output = source.with_suffix(".aedb") / "nested.aedt"
+    with pytest.raises(ValueError, match="inside the frozen source"):
+        execute_operation_plan(_plan(source, output), adapter=FakeAdapter())
 
 
 def _bondwire_plan(source: Path, output: Path) -> dict[str, Any]:
@@ -187,3 +202,11 @@ def test_source_fingerprint_mismatch_fails_before_staging(tmp_path: Path) -> Non
         execute_operation_plan(plan, adapter=FakeAdapter())
     assert not output.exists()
     assert not list(tmp_path.glob(".ansysem-stage-*"))
+
+
+def test_operation_plan_can_be_streamed_without_remote_temp_script(
+    tmp_path: Path, monkeypatch
+) -> None:
+    plan = _plan(_bundle(tmp_path), tmp_path / "new.aedt")
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(plan)))
+    assert load_operation_plan("-") == plan

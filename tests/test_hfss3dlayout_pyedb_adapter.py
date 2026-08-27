@@ -2,12 +2,42 @@ from __future__ import annotations
 
 import math
 
+import pytest
+
 from ansysem_agent_bridge.hfss3dlayout_pyedb_adapter import (
     _segment_box_distance,
+    _set_bondwire,
     compile_apd_parameter_block,
     point_in_polygon,
     polyline_distance,
 )
+
+
+class FakeCore:
+    def get_traj(self):
+        return [0.0, 0.0, 300e-6, 0.0]
+
+    def set_traj(self, *values):
+        raise AssertionError(f"idempotent reconcile must not mutate: {values}")
+
+
+class FakeWire:
+    aedt_name = "BW1"
+    primitive_type = "bondwire"
+    core = FakeCore()
+    type = "apd"
+    width = 25.4e-6
+    material = "Gold"
+
+    def get_definition_name(self):
+        return "PROFILE1"
+
+
+class FakeEdb:
+    class Layout:
+        primitives = [FakeWire()]
+
+    layout = Layout()
 
 
 def _profile() -> dict:
@@ -61,3 +91,34 @@ def test_segment_obstacle_distance_detects_collision_and_clearance() -> None:
         5.0,
         abs_tol=1e-6,
     )
+
+
+def test_bondwire_reconcile_skips_already_desired_state() -> None:
+    result = _set_bondwire(
+        FakeEdb(),
+        {
+            "type": "set_bondwire",
+            "name": "BW1",
+            "expected_before": {"bondwire_type": "jedec4"},
+            "start_xy_um": [0.0, 0.0],
+            "end_xy_um": [300.0, 0.0],
+            "bondwire_type": "apd",
+            "profile": "PROFILE1",
+            "diameter_um": 25.4,
+            "material": "Gold",
+        },
+    )
+    assert result["skipped"] is True
+
+
+def test_bondwire_idempotent_skip_still_enforces_unchanged_guards() -> None:
+    with pytest.raises(RuntimeError, match="precondition failed"):
+        _set_bondwire(
+            FakeEdb(),
+            {
+                "type": "set_bondwire",
+                "name": "BW1",
+                "expected_before": {"material": "Copper"},
+                "bondwire_type": "apd",
+            },
+        )

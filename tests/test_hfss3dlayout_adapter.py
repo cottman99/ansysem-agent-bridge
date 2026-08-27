@@ -49,6 +49,23 @@ def test_typed_property_change_has_precondition_and_readback() -> None:
         )
 
 
+def test_property_reconcile_is_idempotent_before_old_precondition() -> None:
+    editor = FakeEditor()
+    editor.values["trace"]["Net"] = "SIG"
+    result = _set_property(
+        editor,
+        {
+            "type": "set_property",
+            "server": "trace",
+            "property": "Net",
+            "expected_before": "OLD",
+            "value": "SIG",
+        },
+    )
+    assert result["skipped"] is True
+    assert result["value"] == "SIG"
+
+
 def test_outer_edge_selection_is_semantic() -> None:
     edges = [
         [[0.0, 0.0], [0.0, 2.0]],

@@ -9,13 +9,14 @@ identity, capability state, semantic operations, artifacts, and readback. It
 does not own Agent planning, project workflow policy, engineering memory, or
 knowledge promotion.
 
-The Bridge publishes five versioned contracts:
+The Bridge publishes six versioned contracts:
 
 - `ansysem-target-identity/v1`
 - `ansysem-runtime-snapshot/v1`
 - `ansysem-capability-descriptor/v1`
 - `ansysem-operation-result/v1`
 - `ansysem-operation-plan/v1`
+- `ansysem-workspace-patch/v1`
 
 ## Runtime profile rule
 
@@ -26,6 +27,10 @@ controlled re-execution of its own fixed CLI so loader variables take effect
 before PyAEDT or AEDT libraries are imported. It accepts no shell command,
 module name, or arbitrary Python field from the caller.
 
+The CLI writes exactly one machine-readable JSON document to standard output.
+Vendor progress and diagnostics are routed to standard error so callers never
+need to scrape JSON from a mixed stream.
+
 ## Transaction rule
 
 A typed mutation never overwrites its source. The Bridge copies the complete
@@ -33,6 +38,18 @@ project bundle to an owned staging area, applies only registered semantic
 operations, saves and closes its owned session, then verifies typed assertions
 after a separate fresh reopen. Only a passing bundle is moved to the new output
 path. Failure removes only transaction-owned staging and partial output.
+
+## Candidate workspace rule
+
+An iterative task uses one Bridge-owned workspace. Typed patches carry stable
+IDs and the expected workspace revision. Passing patches become internal
+checkpoints, not external model versions. Rollback and abort affect only owned
+generations. Promotion is explicit and creates a new output only after replaying
+the journal from the frozen source and passing the final fresh-reopen assertions.
+The mutable candidate is never promoted by copying it directly.
+Promotion intent is persisted before EDA starts. An interrupted exact retry
+verifies a complete output without reapplying mutation, or cleans only the
+intent-owned partial output and staging directory before replaying.
 
 ## Target rule
 
@@ -54,6 +71,11 @@ Prefer one compact runtime snapshot over repeated installation, project,
 module, window, and capability probes. Reuse `state_revision` to suppress
 unchanged state. Screenshots, complete object trees, full logs, and solver
 artifacts are separate evidence requests.
+
+Use compact state revisions and copy-on-write where available for candidate
+continuity. Reserve full bundle hashing and the complete assertion registry for
+explicit promotion. Stream JSON through standard input when this avoids creating
+and transferring one-off remote scripts without weakening the typed contract.
 
 ## Evidence rule
 

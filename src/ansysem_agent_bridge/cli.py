@@ -6,6 +6,7 @@ import json
 import os
 import platform
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,16 @@ from .project_bundle import inspect_project_bundle
 from .runtime import runtime_snapshot
 from .skill_installer import install_skills, skill_status, uninstall_skills
 from .transaction import execute_operation_plan, load_operation_plan
+from .workspace import (
+    abort_workspace,
+    begin_workspace,
+    load_workspace,
+    load_workspace_patch,
+    promote_workspace,
+    reconcile_workspace,
+    rollback_workspace,
+    workspace_status,
+)
 
 
 def _emit(payload: Any, *, pretty: bool) -> None:
@@ -200,6 +211,45 @@ def build_parser() -> argparse.ArgumentParser:
     apply.add_argument("--plan", required=True)
     apply.add_argument("--redact-paths", action="store_true")
 
+    workspace = model_sub.add_parser("workspace")
+    workspace_sub = workspace.add_subparsers(dest="workspace_command", required=True)
+    workspace_begin = workspace_sub.add_parser("begin")
+    workspace_begin.add_argument("--source", required=True)
+    workspace_begin.add_argument("--workspace", required=True)
+    workspace_begin.add_argument(
+        "--adapter",
+        required=True,
+        choices=("hfss3dlayout.native/v1", "hfss3dlayout.pyedb-native/v1"),
+    )
+    workspace_begin.add_argument("--version", required=True)
+    workspace_begin.add_argument("--design", required=True)
+    workspace_begin.add_argument("--workspace-id")
+    workspace_begin.add_argument("--aedt-sha256")
+    workspace_begin.add_argument("--edb-definition-sha256")
+    workspace_begin.add_argument("--redact-paths", action="store_true")
+    workspace_status_parser = workspace_sub.add_parser("status")
+    workspace_status_parser.add_argument("--workspace", required=True)
+    workspace_status_parser.add_argument("--redact-paths", action="store_true")
+    workspace_reconcile = workspace_sub.add_parser("reconcile")
+    workspace_reconcile.add_argument("--workspace", required=True)
+    workspace_reconcile.add_argument("--plan", required=True)
+    workspace_reconcile.add_argument("--redact-paths", action="store_true")
+    workspace_rollback = workspace_sub.add_parser("rollback")
+    workspace_rollback.add_argument("--workspace", required=True)
+    workspace_rollback.add_argument("--expected-revision", required=True)
+    workspace_rollback.add_argument("--redact-paths", action="store_true")
+    workspace_abort = workspace_sub.add_parser("abort")
+    workspace_abort.add_argument("--workspace", required=True)
+    workspace_abort.add_argument("--expected-revision", required=True)
+    workspace_abort.add_argument("--redact-paths", action="store_true")
+    workspace_promote = workspace_sub.add_parser("promote")
+    workspace_promote.add_argument("--workspace", required=True)
+    workspace_promote.add_argument("--output", required=True)
+    workspace_promote.add_argument("--expected-revision", required=True)
+    workspace_promote.add_argument("--promotion-id")
+    workspace_promote.add_argument("--retain-candidate", action="store_true")
+    workspace_promote.add_argument("--redact-paths", action="store_true")
+
     docs = commands.add_parser("docs")
     docs_sub = docs.add_subparsers(dest="docs_command", required=True)
     docs_status_parser = docs_sub.add_parser("status")
@@ -324,15 +374,64 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             redact_paths=args.redact_paths,
         )
     if args.command == "model":
-        plan = load_operation_plan(args.plan)
-        plan_profile = plan.get("profile")
-        if args.profile and plan_profile and args.profile != plan_profile:
-            raise ValueError(
-                f"Profile mismatch: command={args.profile} plan={plan_profile}"
+        if args.model_command == "apply":
+            plan = load_operation_plan(args.plan)
+            plan_profile = plan.get("profile")
+            if args.profile and plan_profile and args.profile != plan_profile:
+                raise ValueError(f"Profile mismatch: command={args.profile} plan={plan_profile}")
+            if args.redact_paths:
+                plan["redact_paths"] = True
+            return execute_operation_plan(plan)
+        if args.workspace_command == "begin":
+            if bool(args.aedt_sha256) != bool(args.edb_definition_sha256):
+                raise ValueError(
+                    "--aedt-sha256 and --edb-definition-sha256 must be supplied together."
+                )
+            fingerprint = None
+            if args.aedt_sha256:
+                fingerprint = {
+                    "aedt_sha256": args.aedt_sha256,
+                    "edb_definition_sha256": args.edb_definition_sha256,
+                }
+            selected_profile = args.profile or load_config().get("default_profile")
+            return begin_workspace(
+                source_project=args.source,
+                workspace=args.workspace,
+                adapter=args.adapter,
+                version=args.version,
+                design=args.design,
+                profile=selected_profile,
+                workspace_id=args.workspace_id,
+                source_fingerprint=fingerprint,
+                redact_paths=args.redact_paths,
             )
-        if args.redact_paths:
-            plan["redact_paths"] = True
-        return execute_operation_plan(plan)
+        if args.workspace_command == "status":
+            return workspace_status(args.workspace, redact_paths=args.redact_paths)
+        if args.workspace_command == "reconcile":
+            patch = load_workspace_patch(args.plan)
+            if args.redact_paths:
+                patch["redact_paths"] = True
+            return reconcile_workspace(args.workspace, patch, redact_paths=args.redact_paths)
+        if args.workspace_command == "rollback":
+            return rollback_workspace(
+                args.workspace,
+                expected_workspace_revision=args.expected_revision,
+                redact_paths=args.redact_paths,
+            )
+        if args.workspace_command == "abort":
+            return abort_workspace(
+                args.workspace,
+                expected_workspace_revision=args.expected_revision,
+                redact_paths=args.redact_paths,
+            )
+        return promote_workspace(
+            args.workspace,
+            output_project=args.output,
+            expected_workspace_revision=args.expected_revision,
+            promotion_id=args.promotion_id,
+            redact_paths=args.redact_paths,
+            retain_candidate=args.retain_candidate,
+        )
     if args.command == "docs":
         root = _docs_root(args.docs_root, args.instance)
         if args.docs_command in {"status", "ensure"}:
@@ -360,19 +459,46 @@ def main(argv: list[str] | None = None) -> int:
     effective_argv = list(argv) if argv is not None else sys.argv[1:]
     args = parser.parse_args(effective_argv)
     try:
-        selected_profile = args.profile
-        if args.command == "model" and not selected_profile:
-            selected_profile = load_operation_plan(args.plan).get("profile")
-        needs_profile = (
-            args.command in {"layout", "model"}
-            or args.command == "runtime-snapshot"
-            and args.live
-            or args.command == "capabilities"
-            and bool(selected_profile)
-        )
-        if needs_profile:
-            ensure_profile_process(selected_profile, effective_argv)
-        payload = dispatch(args)
+        # Keep the public stdout contract to exactly one JSON document. Vendor
+        # packages may print during import or execution; those diagnostics belong
+        # on stderr and must not force callers to scrape a mixed stream.
+        with redirect_stdout(sys.stderr):
+            selected_profile = args.profile
+            model_needs_profile = False
+            if args.command == "model":
+                if args.model_command == "apply":
+                    model_needs_profile = True
+                    if not selected_profile:
+                        if args.plan == "-":
+                            raise ValueError(
+                                "--profile is required when an operation plan is read from stdin."
+                            )
+                        selected_profile = load_operation_plan(args.plan).get("profile")
+                elif args.workspace_command in {"reconcile", "promote"}:
+                    model_needs_profile = True
+                    _, manifest = load_workspace(args.workspace)
+                    workspace_profile = manifest.get("profile")
+                    if (
+                        selected_profile
+                        and workspace_profile
+                        and selected_profile != workspace_profile
+                    ):
+                        raise ValueError(
+                            "Profile mismatch: "
+                            f"command={selected_profile} workspace={workspace_profile}"
+                        )
+                    selected_profile = selected_profile or workspace_profile
+            needs_profile = (
+                args.command == "layout"
+                or model_needs_profile
+                or args.command == "runtime-snapshot"
+                and args.live
+                or args.command == "capabilities"
+                and bool(selected_profile)
+            )
+            if needs_profile:
+                ensure_profile_process(selected_profile, effective_argv)
+            payload = dispatch(args)
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         payload = {
             "status": "error",

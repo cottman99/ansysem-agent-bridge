@@ -78,9 +78,7 @@ def test_profile_launcher_reexecs_exact_cli_with_prelaunch_environment(
     captured = {}
 
     def fake_execve(executable, arguments, environment):
-        captured.update(
-            executable=executable, arguments=arguments, environment=environment
-        )
+        captured.update(executable=executable, arguments=arguments, environment=environment)
         raise RuntimeError("exec captured")
 
     monkeypatch.setattr(os, "execve", fake_execve)

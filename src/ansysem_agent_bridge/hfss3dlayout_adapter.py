@@ -57,6 +57,14 @@ def _set_property(editor: Any, operation: dict[str, Any]) -> dict[str, Any]:
     prop = str(operation["property"])
     value = operation["value"]
     before = _base_properties(editor, server, tab).get(prop)
+    if before == value:
+        return {
+            "type": "set_property",
+            "server": server,
+            "property": prop,
+            "value": before,
+            "skipped": True,
+        }
     if "expected_before" in operation and before != operation["expected_before"]:
         raise RuntimeError(
             f"Precondition failed for {server}.{prop}: expected "
@@ -75,7 +83,13 @@ def _set_property(editor: Any, operation: dict[str, Any]) -> dict[str, Any]:
     after = _base_properties(editor, server, tab).get(prop)
     if after != value:
         raise RuntimeError(f"Property readback failed for {server}.{prop}: {after!r}")
-    return {"type": "set_property", "server": server, "property": prop, "value": after}
+    return {
+        "type": "set_property",
+        "server": server,
+        "property": prop,
+        "value": after,
+        "skipped": False,
+    }
 
 
 def _all_ports(editor: Any, excitations: Any) -> list[str]:
@@ -144,6 +158,43 @@ def _create_gap_port(app: Any, operation: dict[str, Any]) -> dict[str, Any]:
     editor = app.oeditor
     excitations = app.odesign.GetModule("Excitations")
     positive = str(operation["positive_object"])
+    port_name = str(operation["port_name"])
+    settings = {
+        "HFSS Type": "Gap",
+        "Renormalize": True,
+        "Renormalize Impedance": "50ohm + 0i ohm",
+        "DeembedParasiticPortInductance": False,
+        **operation.get("settings", {}),
+    }
+    if port_name in set(_all_ports(editor, excitations)):
+        excitation = app.odesign.GetChildObject("Excitations").GetChildObject(port_name)
+        available = {str(item) for item in excitation.GetPropNames(False)}
+        readback_names = set(settings) | {"Reference", "Boundary Type"}
+        readback = {
+            prop: excitation.GetPropValue(prop) for prop in readback_names if prop in available
+        }
+        reference = str(readback.get("Reference", ""))
+        reference_spec = operation["reference_patch"]
+        reference_tokens = (str(reference_spec["layer"]), str(reference_spec["net"]))
+        settings_match = all(
+            prop not in available or readback.get(prop) == value for prop, value in settings.items()
+        )
+        if (
+            settings_match
+            and readback.get("HFSS Type") == "Gap"
+            and all(token in reference for token in reference_tokens)
+        ):
+            return {
+                "type": "create_gap_port",
+                "port_name": port_name,
+                "positive_object": positive,
+                "selected_side": operation["selected_side"],
+                "properties": readback,
+                "skipped": True,
+            }
+        raise RuntimeError(
+            f"Existing port {port_name} does not match the requested desired state: {readback}"
+        )
     edges = native_polygon_edges(editor, positive)
     edge_index = outer_edge_index(edges, str(operation["selected_side"]))
     patch = _create_reference_patch(editor, operation, edges[edge_index])
@@ -154,32 +205,20 @@ def _create_gap_port(app: Any, operation: dict[str, Any]) -> dict[str, Any]:
     created = sorted(set(_all_ports(editor, excitations)) - before)
     if len(created) != 1:
         raise RuntimeError(f"Expected one new port, found {created}")
-    port_name = str(operation["port_name"])
     excitations.Rename(created[0], port_name)
     excitation = app.odesign.GetChildObject("Excitations").GetChildObject(port_name)
     available = {str(item) for item in excitation.GetPropNames(False)}
-    settings = {
-        "HFSS Type": "Gap",
-        "Renormalize": True,
-        "Renormalize Impedance": "50ohm + 0i ohm",
-        "DeembedParasiticPortInductance": False,
-        **operation.get("settings", {}),
-    }
     for prop, value in settings.items():
         if prop in available:
             excitation.SetPropValue(prop, value)
     readback_names = set(settings) | {"Reference", "Boundary Type"}
-    readback = {
-        prop: excitation.GetPropValue(prop) for prop in readback_names if prop in available
-    }
+    readback = {prop: excitation.GetPropValue(prop) for prop in readback_names if prop in available}
     if readback.get("HFSS Type") != "Gap":
         raise RuntimeError(f"Gap-port readback failed for {port_name}: {readback}")
     reference = str(readback.get("Reference", ""))
     reference_tokens = (str(patch["layer"]), str(patch["net"]))
     if not all(token in reference for token in reference_tokens):
-        raise RuntimeError(
-            f"Gap-port reference readback failed for {port_name}: {reference!r}"
-        )
+        raise RuntimeError(f"Gap-port reference readback failed for {port_name}: {reference!r}")
     return {
         "type": "create_gap_port",
         "port_name": port_name,
@@ -188,6 +227,7 @@ def _create_gap_port(app: Any, operation: dict[str, Any]) -> dict[str, Any]:
         "edge_index": edge_index,
         "reference_patch": patch,
         "properties": readback,
+        "skipped": False,
     }
 
 
@@ -224,7 +264,12 @@ class Hfss3dLayoutNativeAdapter:
                     raise ValueError(f"Unsupported typed operation: {operation['type']}")
             if not app.save_project():
                 raise RuntimeError("AEDT project save returned failure")
-            return {"operation_count": len(records), "operations": records}
+            return {
+                "operation_count": len(records),
+                "applied_count": sum(not item.get("skipped", False) for item in records),
+                "skipped_count": sum(item.get("skipped", False) for item in records),
+                "operations": records,
+            }
         finally:
             app.release_desktop(close_projects=True, close_desktop=True)
 
@@ -236,8 +281,7 @@ class Hfss3dLayoutNativeAdapter:
             ports = _all_ports(editor, excitations)
             setups = sorted(str(item) for item in app.setup_names)
             validations = [
-                self._assert(app, assertion, ports, setups)
-                for assertion in plan["assertions"]
+                self._assert(app, assertion, ports, setups) for assertion in plan["assertions"]
             ]
             return {
                 "readback": {
@@ -286,9 +330,7 @@ class Hfss3dLayoutNativeAdapter:
             expected = sorted(str(item) for item in assertion["value"])
             actual = sorted(name for name in setups if name in expected)
         elif kind in {"port_property_equals", "port_property_contains"}:
-            excitation = app.odesign.GetChildObject("Excitations").GetChildObject(
-                assertion["port"]
-            )
+            excitation = app.odesign.GetChildObject("Excitations").GetChildObject(assertion["port"])
             actual = excitation.GetPropValue(assertion["property"])
             expected = assertion["value"]
             if kind == "port_property_contains":

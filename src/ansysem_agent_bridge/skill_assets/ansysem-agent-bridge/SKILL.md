@@ -1,6 +1,6 @@
 ---
 name: ansysem-agent-bridge
-description: "Inspect and operate an exact local or SSH-hosted Ansys Electronics Desktop target through the installed ansysem-agent Bridge. Use for Bridge setup and diagnosis, runtime profiles, project-bundle checks, runtime snapshots, capability discovery, bounded HFSS 3D Layout readback, typed non-overwriting transactions, image export, and safe session handling. Route documentation-only questions to ansysem-kb-docs when that optional Skill is installed."
+description: "Inspect and operate an exact local or SSH-hosted Ansys Electronics Desktop target through the installed ansysem-agent Bridge. Use for Bridge setup and diagnosis, runtime profiles, project-bundle checks, runtime snapshots, capability discovery, bounded HFSS 3D Layout readback, typed transactions, resumable candidate workspaces, image export, and safe session handling. Route documentation-only questions to ansysem-kb-docs when that optional Skill is installed."
 ---
 
 # AnsysEM Agent Bridge
@@ -65,6 +65,11 @@ Prefer, in order:
 Do not use blind coordinates, stale screenshots, or GUI appearance as solver
 evidence.
 
+Once a matching Bridge capability is available, call it through its typed JSON
+contract. Do not recreate the same vendor operation in one-off SSH Python or GUI
+steps. Reuse an unchanged runtime `state_revision`; do not repeat environment,
+module, window, or object-tree probes without a state change or new evidence need.
+
 ## Bound execution and evidence
 
 Use live operations only for the exact project and intended display. A live
@@ -82,25 +87,52 @@ ansysem-agent --pretty --profile <profile-id> layout export-image \
 Never overwrite customer input or publish local project paths, credentials,
 license details, vendor documentation, or customer artifacts.
 
-For a mutation, compile task-specific values into a project-local or disposable
-`ansysem-operation-plan/v1`. Do not put those values into this Skill or add a
-task-specific Bridge command. The plan may use only registered typed operations
-and assertions; it must name distinct source and output bundles and set
-`solve_requested` to false. For bondwire work, pin the expected `.aedt` and
-`edb.def` hashes, use the PyEDB-native adapter, supply exact `expected_before`
-state, and express APD profiles only as typed direction, diameter, material,
-and segment fields. Never place a raw APD block or vendor call in the plan.
+For a mutation, compile task-specific values into typed JSON. Do not put those
+values into this Skill or add a task-specific Bridge command. Use only registered
+operations and assertions and keep `solve_requested` false. For bondwire work,
+use the PyEDB-native adapter, exact object identity and `expected_before`, and
+typed APD fields; never pass a raw APD block or vendor call.
+
+Use one-shot `ansysem-operation-plan/v1` only when the complete final change is
+already known:
 
 ```text
 ansysem-agent --pretty --profile <profile-id> \
-  model apply --plan <operation-plan.json> --redact-paths
+  model apply --plan - --redact-paths < <operation-plan.json>
 ```
 
-Treat the operation as successful only when the result is `passed`, the source
-hashes are unchanged, the output bundle is complete, and every assertion passed
-after save, owned-session close, and separate fresh AEDT and PyEDB reopens when
-that adapter is selected. A zero process exit code must agree with a successful
-JSON status.
+If the task may need observation and correction, begin one candidate workspace
+from the frozen source. Keep all attempts there; a reconcile checkpoint is not a
+model version. Submit stable patch IDs and the last returned workspace revision.
+An identical retry returning `preserved` must not trigger another EDA call.
+Within one observation-and-correction cycle, batch all already-known compatible
+edits and their assertions into one patch; do not pay for one fresh reopen per
+object unless an earlier result is genuinely needed to decide the next edit.
+
+```text
+ansysem-agent --pretty --profile <profile-id> model workspace begin \
+  --source <frozen.aedt> --workspace <candidate-dir> \
+  --adapter <adapter-id> --version <version> --design <design>
+ansysem-agent --pretty --profile <profile-id> model workspace reconcile \
+  --workspace <candidate-dir> --plan - < <patch.json>
+```
+
+Use `rollback` for a bad committed checkpoint and `abort` to discard owned
+candidate generations. Do not create a new external version merely because a
+patch or assertion failed. Only an explicit `workspace promote` may create the
+delivery output; it must cleanly replay the journal from the frozen source and
+pass the final fresh-reopen registry. The mutable candidate is not delivery
+evidence. Supply a stable promotion ID so a lost response can be retried as
+`preserved` without another EDA call. If status reports an interrupted
+promotion, retry the exact recorded promotion request. The Bridge will verify an
+already-complete output or remove only the recorded partial output and staging
+area before replaying; do not create a replacement workspace or output version.
+
+Treat a one-shot apply or promotion as successful only when JSON status and
+process exit code agree, source integrity is preserved, the output bundle is
+complete, and every final assertion passed. After the same semantic failure is
+observed twice, stop issuing mutations and re-check capability, target identity,
+preconditions, and the plan rather than accumulating retries.
 
 Stop after returning the exact identity, assertions, output hash, and evidence
 boundary. Do not solve, package, publish, create a release, or add extra visual

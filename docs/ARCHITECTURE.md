@@ -47,9 +47,13 @@ intent gate -> target resolver -> capability registry -> semantic operation
    interchangeable.
 6. **Lifecycle is owned.** A command closes only a session it created. It never
    force-kills an unverified process or silently discards another user's work.
-7. **Persisted state before success.** Mutations use a new output bundle and
-   pass only after save, owned-session close, fresh reopen, and typed assertions.
-8. **Compact by default.** Runtime snapshots are revisioned; operations return
+7. **Attempts are not revisions.** Iterative work stays in one candidate
+   workspace. Only explicit clean-replay promotion creates a permanent output.
+8. **Desired state before retry.** Registered adapters first detect an already
+   satisfied request; an identical patch never repeats an EDA mutation.
+9. **Assurance matches the gate.** Reconcile uses scoped persisted-state
+   assertions; promotion performs the full source-to-output assurance gate once.
+10. **Compact by default.** Runtime snapshots are revisioned; operations return
    counts and hashes instead of repeating full trees or logs.
 
 ## Route selection
@@ -69,22 +73,33 @@ GUI automation is therefore an explicit last lane, not an automatic fallback.
 
 ## Request lifecycle
 
-Every stateful semantic operation passes these gates:
+For a fully known one-shot mutation, the Bridge copies the frozen source to an
+owned stage, applies registered operations, saves and closes its session,
+performs fresh-reopen assertions, and non-destructively commits a distinct
+two-part project bundle. Normal failures remove partial output, but one-shot
+apply does not provide the durable interruption-resume contract of a workspace.
 
-1. resolve exact target and expected preconditions;
-2. inspect capability descriptor and authorization;
-3. compile intent into a typed adapter request;
-4. copy the complete source bundle to an owned, non-overwriting staging path;
-5. execute with an operation ID and bounded registered adapter;
-6. save, close the owned session, and reopen in a separate fresh session;
-7. read back typed assertions using the correct object-ID domain;
-8. commit the new output bundle only after every assertion passes;
-9. return `ansysem-operation-result/v1` and clean up owned resources.
+For iterative work, the lifecycle is:
+
+1. resolve one frozen source, runtime profile, adapter, design, and candidate
+   workspace for the task;
+2. compile each bounded correction into an idempotent typed patch with the last
+   workspace revision;
+3. apply and fresh-reopen only the patch's scoped assertions, then commit an
+   internal checkpoint;
+4. roll back inside that workspace when required instead of creating a new
+   external version;
+5. at the explicit delivery gate, record an exact promotion intent, replay the
+   typed journal from the frozen source, and run the complete final assertion
+   registry;
+6. commit one non-overwriting output and retain machine-readable evidence;
+7. after interruption, accept only the exact recorded request, then either
+   verify the complete output without mutation or clean only its owned partial
+   output and stage before replaying.
 
 The alpha implements the read-only/static gates, live HFSS 3D Layout snapshot,
-native layout image export, and one narrow transaction adapter. Its registered
-mutations are exact `BaseElementTab` property changes and semantic outer-edge
-gap-port creation with a typed reference patch. Arbitrary geometry, stackup,
+native layout image export, native property/gap-port and PyEDB bondwire
+transaction adapters, plus the candidate workspace lifecycle. Arbitrary geometry, stackup,
 setup, solver, command, module, or Python execution remains unclaimed.
 
 ## Failure model

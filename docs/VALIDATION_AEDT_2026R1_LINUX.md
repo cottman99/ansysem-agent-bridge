@@ -2,7 +2,8 @@
 
 Date: 2026-08-27
 Release candidates: `0.1.0a1` for read/export, `0.1.0a2` for native typed
-transactions, and `0.1.0a3` for typed bondwire transactions
+transactions, `0.1.0a3` for typed bondwire transactions, and `0.2.0a1` for
+resumable candidate workspaces
 Environment: Linux, AEDT 2026.1.0, PyAEDT 1.4.0, PyEDB 0.82.0, Python 3.11
 
 ## Public-safe result
@@ -78,10 +79,51 @@ log, host address, user path, project/design name, customer identifier,
 credential, license detail, or vendor documentation. Temporary private image
 copies were deleted after hash and visual checks.
 
+## Candidate workspace acceptance (`0.2.0a1`)
+
+A private disposable source copy exercised the public
+`aedt.transaction_workspace` lifecycle with the PyEDB-native adapter. No task
+specific name, coordinate, project path, raw log, or model was retained in the
+public repository.
+
+| Gate | Result |
+| --- | --- |
+| Wheel, required Skill, runtime profile, and display | Passed |
+| Begin from frozen source | Passed; generation 0 used a filesystem reflink |
+| Typed reconcile and fresh reopen | Passed; 4/4 scoped assertions |
+| Identical patch replay | `preserved` in about 1 second; no EDA call |
+| Internal rollback | Passed in about 1 second; returned to generation 0 without an external model version |
+| Reconcile after rollback | Passed; 4/4 scoped assertions and pure JSON stdout |
+| Explicit promotion | Passed; clean replay from the frozen source, 4/4 final assertions, complete output |
+| Identical promotion replay | `preserved` in about 0.1 seconds after digest verification; no EDA call |
+| Integrity | Source unchanged; source and output full-bundle SHA-256 digests recorded |
+| Cleanup | Candidate generations removed after promotion; all owned AEDT and EDB processes exited |
+| Solve, packaging, publication, or release action | Not requested or run |
+
+Synthetic power-loss tests additionally interrupt promotion both before output
+creation and after a complete output commit but before manifest commit. The
+first path removes only the intent-owned partial output and staging directory
+before replay; the second performs fresh-reopen verification without reapplying
+mutation. A normal failed promotion returns the same candidate workspace to
+`draft` with a new optimistic revision.
+
+The live run exposed and corrected one general interface defect: PyEDB progress
+messages could contaminate the CLI standard output and force callers to scrape a
+mixed stream. Vendor diagnostics now go to standard error; standard output is
+exactly one JSON document and was parsed directly during the second reconcile
+and promotion.
+
+On this AEDT 2026.1 / PyEDB 0.82 environment, the final wheel's actual reconcile
+and promotion took about 46 and 45 seconds respectively. Candidate cloning
+itself used reflinks; the dominant remaining cost was owned AEDT/PyEDB
+save-close-fresh-reopen work plus PyEDB's fallback from unavailable
+shared-memory IPC to standard gRPC.
+
 ## Claim boundary
 
 This acceptance supports the live identity, compact readback, native image
 export, narrow typed property/gap-port and bondwire transactions, persistence,
-and safe lifecycle claims for the tested release. It does not support claims
+resumable candidate workspaces, clean-replay promotion, and safe lifecycle
+claims for the tested release. It does not support claims
 about arbitrary editing, electrical correctness, mesh generation, convergence,
 numerical results, or solve operations.

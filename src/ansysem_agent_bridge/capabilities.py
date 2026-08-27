@@ -279,6 +279,60 @@ def capability_descriptors(
                 "explicit no-solve boundary",
             ),
         ),
+        CapabilityDescriptor(
+            capability_id="aedt.transaction_workspace",
+            category="model",
+            safety="bounded",
+            lanes=("host", "pyedb-offline", "native-aedt", "pyaedt-live"),
+            mutates=True,
+            latency_class="moderate",
+            requirements=(
+                "complete frozen source project bundle",
+                "named runtime profile",
+                "registered transaction adapter",
+                "typed patches with stable ids and expected workspace revision",
+                "explicit promotion output",
+            ),
+            state=CapabilityState(
+                True,
+                pyaedt_ready,
+                pyaedt_ready and project_ready,
+                bool(active_display) or os.name == "nt",
+                True,
+                None
+                if pyaedt_ready and project_ready and (active_display or os.name == "nt")
+                else (
+                    "A complete source bundle, PyAEDT-capable profile, and display "
+                    "are required; bondwire work additionally requires PyEDB."
+                ),
+                tuple(
+                    action
+                    for condition, action in (
+                        (
+                            not pyaedt_ready,
+                            "Select a runtime profile whose Python imports PyAEDT.",
+                        ),
+                        (
+                            not project_ready,
+                            "Provide the exact .aedt file and matching .aedb/edb.def.",
+                        ),
+                        (
+                            not active_display and os.name != "nt",
+                            "Select a runtime profile with the intended DISPLAY.",
+                        ),
+                    )
+                    if condition
+                ),
+            ),
+            evidence=(
+                "optimistic workspace revision and file lock",
+                "idempotent typed patch journal",
+                "internal rollback checkpoints",
+                "copy-on-write when supported",
+                "clean replay from frozen source at explicit promotion",
+                "full source and output bundle digest at promotion",
+            ),
+        ),
     ]
 
 

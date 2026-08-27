@@ -68,9 +68,7 @@ def upsert_instance(record: dict[str, Any], *, make_default: bool = True) -> dic
 
 def upsert_profile(record: dict[str, Any], *, make_default: bool = True) -> dict[str, Any]:
     data = load_config()
-    profiles = [
-        item for item in data["profiles"] if item.get("profile_id") != record["profile_id"]
-    ]
+    profiles = [item for item in data["profiles"] if item.get("profile_id") != record["profile_id"]]
     profiles.append(record)
     profiles.sort(key=lambda item: str(item.get("profile_id") or ""))
     data["profiles"] = profiles
@@ -83,9 +81,7 @@ def upsert_profile(record: dict[str, Any], *, make_default: bool = True) -> dict
 def remove_profile(profile_id: str) -> dict[str, Any]:
     data = load_config()
     before = len(data["profiles"])
-    data["profiles"] = [
-        item for item in data["profiles"] if item.get("profile_id") != profile_id
-    ]
+    data["profiles"] = [item for item in data["profiles"] if item.get("profile_id") != profile_id]
     if len(data["profiles"]) == before:
         raise ValueError(f"Unknown runtime profile: {profile_id}")
     if data.get("default_profile") == profile_id:
