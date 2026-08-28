@@ -253,6 +253,8 @@ profile:
 ```console
 ansysem-agent --profile <profile-id> context-addin install
 ansysem-agent context-addin status
+ansysem-agent --profile <profile-id> context-addin refresh \
+  --version <version> --port <grpc-port> --process-id <aedt-pid>
 ```
 
 The actions are **Use Current Design with Agent**, **Copy Agent Context**, and

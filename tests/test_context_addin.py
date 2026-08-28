@@ -1,4 +1,6 @@
 import json
+import sys
+import types
 from types import SimpleNamespace
 
 from ansysem_agent_bridge import aedt_context_tool, context_addin
@@ -60,3 +62,22 @@ def test_context_addin_status_is_bounded_to_owned_actions(tmp_path):
     (project / "TabConfig.xml").write_text("\n".join(context_addin.TOOLS), encoding="utf-8")
     result = context_addin.status(tmp_path)
     assert result["status"] == "ready"
+
+
+def test_context_addin_refresh_uses_existing_owned_desktop(monkeypatch):
+    calls = []
+    desktop = SimpleNamespace(
+        odesktop=SimpleNamespace(RefreshToolkitUI=lambda: calls.append("refresh"))
+    )
+    ansys = types.ModuleType("ansys")
+    aedt = types.ModuleType("ansys.aedt")
+    core = types.ModuleType("ansys.aedt.core")
+    core.Desktop = lambda **kwargs: desktop
+    ansys.aedt = aedt
+    aedt.core = core
+    monkeypatch.setitem(sys.modules, "ansys", ansys)
+    monkeypatch.setitem(sys.modules, "ansys.aedt", aedt)
+    monkeypatch.setitem(sys.modules, "ansys.aedt.core", core)
+    result = context_addin.refresh(version="2026.1", port=50051, process_id=123)
+    assert result["refreshed"] is True
+    assert calls == ["refresh"]

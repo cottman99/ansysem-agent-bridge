@@ -82,6 +82,26 @@ def status(personal_lib: str | Path | None = None) -> dict[str, Any]:
     }
 
 
+def refresh(*, version: str, port: int, process_id: int) -> dict[str, Any]:
+    import ansys.aedt.core
+
+    desktop = ansys.aedt.core.Desktop(
+        new_desktop=False,
+        version=version,
+        port=port,
+        aedt_process_id=process_id,
+        close_on_exit=False,
+    )
+    desktop.odesktop.RefreshToolkitUI()
+    return {
+        "status": "ready",
+        "version": version,
+        "port": port,
+        "process_id": process_id,
+        "refreshed": True,
+    }
+
+
 def uninstall(personal_lib: str | Path | None = None) -> dict[str, Any]:
     from ansys.aedt.core.extensions.customize_automation_tab import tab_map
     from ansys.aedt.core.extensions.tabconfig_parser import TabConfigParser

@@ -305,17 +305,23 @@ def build_parser() -> argparse.ArgumentParser:
     for action in ("install", "status", "uninstall"):
         item = context_addin_sub.add_parser(action)
         item.add_argument("--personal-lib", type=Path)
+    context_refresh = context_addin_sub.add_parser("refresh")
+    context_refresh.add_argument("--version", required=True)
+    context_refresh.add_argument("--port", required=True, type=int)
+    context_refresh.add_argument("--process-id", required=True, type=int)
     return parser
 
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "context-addin":
-        from .context_addin import install, status, uninstall
+        from .context_addin import install, refresh, status, uninstall
 
         if args.context_addin_command == "install":
             return install(args.personal_lib)
         if args.context_addin_command == "status":
             return status(args.personal_lib)
+        if args.context_addin_command == "refresh":
+            return refresh(version=args.version, port=args.port, process_id=args.process_id)
         return uninstall(args.personal_lib)
     if args.command == "runtime":
         from .runtime_adapter import (
@@ -559,7 +565,7 @@ def main(argv: list[str] | None = None) -> int:
                 and args.runtime_command == "worker"
                 and bool(selected_profile)
                 or args.command == "context-addin"
-                and args.context_addin_command in {"install", "uninstall"}
+                and args.context_addin_command in {"install", "uninstall", "refresh"}
             )
             if needs_profile:
                 ensure_profile_process(selected_profile, effective_argv)
