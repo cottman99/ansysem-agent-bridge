@@ -198,3 +198,23 @@ def test_cli_serve_keeps_protocol_on_real_stdout(tmp_path):
     )
     lines = process.stdout.splitlines()
     assert json.loads(lines[0]) == {"protocol": "eda-runtime.handshake/v1", "selected": 1}
+
+
+def test_job_status_recovers_dead_worker_without_replay(tmp_path, monkeypatch):
+    pytest.importorskip("eda_bridge_runtime")
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    submitted = service.store.submit(_request())
+    service.store.transition(
+        submitted["job_id"], "running", {"event": "worker.started", "pid": 99999999}
+    )
+    monkeypatch.setattr("eda_bridge_runtime.jobs._pid_is_alive", lambda _pid: False)
+    response = service.handle(
+        _request(
+            operation="runtime.job_status",
+            payload={"mutating": False, "job_id": submitted["job_id"]},
+        )
+    )
+    assert response.status == "passed"
+    assert response.result["job"]["state"] == "orphaned"

@@ -292,6 +292,20 @@ class DurableAnsysService:
             log_path = runtime_state_dir() / "job-logs" / f"{job['job_id']}.log"
             self.spawn(command, job_id=job["job_id"], log_path=log_path, store=self.store)
             job = self.store.get(job["job_id"])
+        if job["state"] == "orphaned":
+            return self.ResponseEnvelope(
+                request_id=request.request_id,
+                run_id=request.run_id,
+                status="failed",
+                result={"job": self._public_job(job)},
+                error={
+                    "code": "job_orphaned",
+                    "message": (
+                        "The detached worker ended without a terminal result; "
+                        "inspect before resume."
+                    ),
+                },
+            )
         return self.ResponseEnvelope(
             request_id=request.request_id,
             run_id=request.run_id,
@@ -333,6 +347,7 @@ class DurableAnsysService:
         return RequestEnvelope.from_dict(data)
 
     def _job_status(self, request):
+        self.store.recover_orphans()
         job = self.store.get(str(request.payload["job_id"]))
         return self.ResponseEnvelope(
             request_id=request.request_id,
@@ -343,6 +358,7 @@ class DurableAnsysService:
 
     def _job_events(self, request):
         job_id = str(request.payload["job_id"])
+        self.store.recover_orphans()
         events = self.store.events(job_id, int(request.payload.get("after_cursor", 0)))
         return self.ResponseEnvelope(
             request_id=request.request_id,
