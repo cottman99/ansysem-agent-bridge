@@ -73,6 +73,18 @@ GUI automation is therefore an explicit last lane, not an automatic fallback.
 
 ## Request lifecycle
 
+Agent-facing local and SSH requests first enter `eda-bridge-runtime`. A short
+declared purpose and automatically detected identity are recorded before an EDA
+adapter runs. AnsysEM operations are durable jobs: submission, worker execution,
+and observation are independent phases linked by request, run, job, and trace
+identities. SSH disconnection does not authorize replay and does not define job
+failure.
+
+The AEDT Automation-tab Context Add-in creates `EDA_CONTEXT/v1` locators. Full
+project paths stay in a private host registry and are resolved only by the
+AnsysEM adapter. The Context protocol belongs to the generic Runtime; active
+AEDT discovery belongs to this Bridge.
+
 For a fully known one-shot mutation, the Bridge copies the frozen source to an
 owned stage, applies registered operations, saves and closes its session,
 performs fresh-reopen assertions, and non-destructively commits a distinct

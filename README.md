@@ -51,6 +51,10 @@ policy without duplicating the Bridge transport or AEDT adapters.
   PyEDB bondwire operations, save/close, fresh reopen, and assertions;
 - resumable candidate workspaces with idempotent typed patches, internal
   checkpoints, rollback, abort, and clean-replay promotion;
+- detached durable jobs with reconnectable receipts, events, and unified
+  execution-ledger timing across local and persistent SSH transport;
+- a lightweight AEDT Automation-tab Context Add-in using secret-free
+  `EDA_CONTEXT/v1` locators;
 - private local documentation query/get commands;
 - one required Bridge Skill and one optional documentation Skill;
 - conflict-safe Skill install, status, and uninstall.
@@ -226,12 +230,36 @@ a corpus configured on the user's machine.
 
 ## Remote topology
 
-Run `ansysem-agent` on the AEDT machine through SSH. JSON plans can be streamed
-over standard input, so a remote task does not need a new helper script or plan
-file for each correction. Keep AEDT automation,
-projects, documentation, and artifacts on that host unless the user explicitly
-exports a sanitized result. A public remote Bridge protocol and multi-client
-session lease service are not claimed.
+Run `ansysem-agent` on the AEDT machine through SSH. One-off administration can
+still call the CLI directly. Repeated Agent operations use one persistent stdio
+channel:
+
+```console
+ansysem-agent runtime serve
+```
+
+The service persists a job before starting the exact runtime-profile worker,
+returns a receipt immediately, and detaches the worker from the SSH connection.
+Use `runtime job-status` and `runtime job-events` after reconnecting. The generic
+Runtime ledger records declared purpose, actual phases, timing, and normalized
+result. Keep AEDT automation, projects, documentation, and artifacts on that
+host unless the user explicitly exports a sanitized result.
+
+## Explicit AEDT context
+
+Install the three small Automation-tab actions with the configured PyAEDT
+profile:
+
+```console
+ansysem-agent --profile <profile-id> context-addin install
+ansysem-agent context-addin status
+```
+
+The actions are **Use Current Design with Agent**, **Copy Agent Context**, and
+**Agent Connection Status**. The clipboard token contains only a host-local
+context ID, generation, display label, and capability hints. The exact project
+path remains in the private registry on the AEDT host. A context selects a
+target; it does not authorize mutation or solving.
 
 ## Safety boundary
 

@@ -280,10 +280,67 @@ def build_parser() -> argparse.ArgumentParser:
         item.add_argument("--root", type=Path)
         if action == "install":
             item.add_argument("--force", action="store_true")
+
+    runtime = commands.add_parser(
+        "runtime", help="Submit and observe durable AnsysEM jobs over local or SSH stdio."
+    )
+    runtime_sub = runtime.add_subparsers(dest="runtime_command", required=True)
+    runtime_serve = runtime_sub.add_parser("serve")
+    runtime_serve.add_argument("--jobs", type=Path)
+    runtime_serve.add_argument("--ledger", type=Path)
+    runtime_status_parser = runtime_sub.add_parser("job-status")
+    runtime_status_parser.add_argument("--jobs", type=Path)
+    runtime_status_parser.add_argument("--job-id", required=True)
+    runtime_events = runtime_sub.add_parser("job-events")
+    runtime_events.add_argument("--jobs", type=Path)
+    runtime_events.add_argument("--job-id", required=True)
+    runtime_events.add_argument("--after-cursor", type=int, default=0)
+    runtime_worker = runtime_sub.add_parser("worker", help=argparse.SUPPRESS)
+    runtime_worker.add_argument("--jobs", type=Path, required=True)
+    runtime_worker.add_argument("--ledger", type=Path, required=True)
+    runtime_worker.add_argument("--job-id", required=True)
+
+    context_addin = commands.add_parser("context-addin")
+    context_addin_sub = context_addin.add_subparsers(dest="context_addin_command", required=True)
+    for action in ("install", "status", "uninstall"):
+        item = context_addin_sub.add_parser(action)
+        item.add_argument("--personal-lib", type=Path)
     return parser
 
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
+    if args.command == "context-addin":
+        from .context_addin import install, status, uninstall
+
+        if args.context_addin_command == "install":
+            return install(args.personal_lib)
+        if args.context_addin_command == "status":
+            return status(args.personal_lib)
+        return uninstall(args.personal_lib)
+    if args.command == "runtime":
+        from .runtime_adapter import (
+            default_jobs_path,
+            default_ledger_path,
+            run_worker,
+            serve,
+        )
+
+        jobs_path = args.jobs or default_jobs_path()
+        if args.runtime_command == "serve":
+            serve(jobs_path, args.ledger or default_ledger_path(), sys.stdin, sys.stdout)
+            return {"status": "ready", "state": "stopped"}
+        if args.runtime_command == "worker":
+            return run_worker(jobs_path, args.ledger, args.job_id).to_dict()
+        from eda_bridge_runtime import JobStore
+
+        store = JobStore(jobs_path)
+        if args.runtime_command == "job-status":
+            return {"status": "ready", "job": store.get(args.job_id)}
+        return {
+            "status": "ready",
+            "job_id": args.job_id,
+            "events": store.events(args.job_id, args.after_cursor),
+        }
     if args.command == "doctor":
         return _doctor(args.profile)
     if args.command == "setup":
@@ -495,6 +552,11 @@ def main(argv: list[str] | None = None) -> int:
                 and args.live
                 or args.command == "capabilities"
                 and bool(selected_profile)
+                or args.command == "runtime"
+                and args.runtime_command == "worker"
+                and bool(selected_profile)
+                or args.command == "context-addin"
+                and args.context_addin_command in {"install", "uninstall"}
             )
             if needs_profile:
                 ensure_profile_process(selected_profile, effective_argv)

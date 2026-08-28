@@ -9,6 +9,13 @@ Use `ansysem-agent` as the stable public interface. Run it on the AEDT host;
 for remote work, invoke it through SSH rather than exposing a raw AEDT or
 Bridge endpoint.
 
+For repeated remote actions, use the generic Runtime's persistent SSH stdio
+transport with `ansysem-agent runtime serve`; do not create one SSH process per
+probe or patch. AnsysEM execution is a durable job: retain its receipt and query
+status/events after reconnecting instead of inferring failure from transport
+loss. Every Agent-originated request carries a concise `purpose`; identity and
+timing metadata are filled and recorded automatically where available.
+
 ## Route the request
 
 - Pure documentation or API research belongs to `$ansysem-kb-docs` and must
@@ -46,6 +53,12 @@ host + AEDT installation/version + display + process/session
 Do not silently choose the newest installation, another project, or another
 design. A `.aedt` file without its required `.aedb/edb.def` is not a complete
 HFSS 3D Layout project bundle.
+
+Prefer a user-copied `EDA_CONTEXT:v1` from the Bridge's AEDT Automation-tab
+actions when available. It resolves through the private host registry and must
+match its generation. Never guess a foreground project or design. The Context
+selects a target but does not authorize editing, simulation, promotion, or
+closing AEDT.
 
 ## Use capability state before execution
 
