@@ -6,8 +6,9 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-PANEL = "Panel_PyAEDT_Extensions"
+PANEL = "Panel_PyAEDT_Installer"
 LEGACY_PANEL = "Panel_EDA_Agent"
+LEGACY_SHARED_PANEL = "Panel_PyAEDT_Extensions"
 TOOLS = {
     "Use Current Design with Agent": "use_current_design.py",
     "Copy Agent Context": "copy_agent_context.py",
@@ -41,7 +42,7 @@ def install(personal_lib: str | Path | None = None) -> dict[str, Any]:
             "PyAEDT and eda-bridge-runtime are required for the Context Add-in"
         ) from exc
     root = Path(personal_lib).expanduser().resolve() if personal_lib else _default_personal_lib()
-    _remove_owned_buttons(root, panels=(LEGACY_PANEL,))
+    _remove_owned_buttons(root, panels=(LEGACY_PANEL, LEGACY_SHARED_PANEL))
     installed = []
     for name, asset in TOOLS.items():
         ok = add_script_to_menu(
@@ -110,7 +111,7 @@ def uninstall(personal_lib: str | Path | None = None) -> dict[str, Any]:
     root = Path(personal_lib).expanduser().resolve() if personal_lib else _default_personal_lib()
     project_root = root / "Toolkits" / tab_map("Project")
     removed = []
-    _remove_owned_buttons(root, panels=(PANEL, LEGACY_PANEL))
+    _remove_owned_buttons(root, panels=(PANEL, LEGACY_PANEL, LEGACY_SHARED_PANEL))
     for name in TOOLS:
         owned = project_root / name
         if owned.is_dir():
@@ -129,4 +130,6 @@ def _remove_owned_buttons(root: Path, *, panels: tuple[str, ...]) -> None:
     for panel in panels:
         for name in TOOLS:
             parser.remove_button(panel, name)
+    if LEGACY_PANEL in panels:
+        parser.remove_panel(LEGACY_PANEL)
     parser.save(tab_config)
