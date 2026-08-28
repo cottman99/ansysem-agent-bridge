@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -103,7 +104,11 @@ class _AnsysAdapterBase:
         started = time.monotonic()
         context.emit(
             "ansysem.operation.started",
-            {"operation": request.operation, "profile": request.target.get("profile")},
+            {
+                "operation": request.operation,
+                "profile": request.target.get("profile"),
+                "display": os.environ.get("DISPLAY"),
+            },
         )
         result = self._dispatch(request)
         elapsed_ms = round((time.monotonic() - started) * 1000, 3)
