@@ -48,10 +48,14 @@ def test_context_addin_install_uses_official_pyaedt_registration(tmp_path, monke
         "ansys.aedt.core.extensions.customize_automation_tab",
         SimpleNamespace(add_script_to_menu=add_script_to_menu),
     )
+    icon = tmp_path / "pyansys.png"
+    icon.write_bytes(b"png")
+    monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: icon)
     result = context_addin.install(tmp_path)
     assert result["status"] == "ready"
     assert [call[0] for call in calls] == list(context_addin.TOOLS)
     assert all(call[1]["panel"] == context_addin.PANEL for call in calls)
+    assert all(call[1]["icon_file"] == str(icon) for call in calls)
 
 
 def test_context_addin_status_is_bounded_to_owned_actions(tmp_path):
@@ -98,6 +102,9 @@ def test_context_addin_install_prefers_live_personal_lib(tmp_path, monkeypatch):
         return True
 
     monkeypatch.setattr(context_addin, "_connect_desktop", lambda **kwargs: desktop)
+    icon = tmp_path / "pyansys.png"
+    icon.write_bytes(b"png")
+    monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: icon)
     monkeypatch.setitem(
         sys.modules,
         "ansys.aedt.core.extensions.customize_automation_tab",

@@ -52,6 +52,15 @@ def _assets_root() -> Path:
     return Path(__file__).parent / "aedt_addin_assets"
 
 
+def _pyaedt_icon() -> Path:
+    import ansys.aedt.core.extensions
+
+    icon = Path(ansys.aedt.core.extensions.__file__).parent / "images" / "large" / "pyansys.png"
+    if not icon.is_file():
+        raise RuntimeError(f"PyAEDT Automation icon is missing: {icon}")
+    return icon
+
+
 def install(
     personal_lib: str | Path | None = None,
     *,
@@ -92,6 +101,7 @@ def install(
         ok = add_script_to_menu(
             name,
             script_file=str(_assets_root() / asset),
+            icon_file=str(_pyaedt_icon()),
             product="Project",
             copy_to_personal_lib=True,
             panel=PANEL,
