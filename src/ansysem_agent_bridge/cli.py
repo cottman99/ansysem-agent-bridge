@@ -327,7 +327,10 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
 
         jobs_path = args.jobs or default_jobs_path()
         if args.runtime_command == "serve":
-            serve(jobs_path, args.ledger or default_ledger_path(), sys.stdin, sys.stdout)
+            # main() redirects vendor chatter to stderr to protect the normal
+            # one-document CLI contract. The framed Runtime protocol must keep
+            # its dedicated real stdio channel instead of inheriting that redirect.
+            serve(jobs_path, args.ledger or default_ledger_path(), sys.__stdin__, sys.__stdout__)
             return {"status": "ready", "state": "stopped"}
         if args.runtime_command == "worker":
             return run_worker(jobs_path, args.ledger, args.job_id).to_dict()

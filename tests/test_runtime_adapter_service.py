@@ -1,5 +1,7 @@
 import io
 import json
+import subprocess
+import sys
 
 import pytest
 
@@ -173,3 +175,26 @@ def test_service_rejects_stale_context_generation(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="stale"):
         service.handle(_request(target={"eda": "ansys-electronics-desktop", "context": token}))
+
+
+def test_cli_serve_keeps_protocol_on_real_stdout(tmp_path):
+    process = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ansysem_agent_bridge.cli",
+            "runtime",
+            "serve",
+            "--jobs",
+            str(tmp_path / "jobs.sqlite3"),
+            "--ledger",
+            str(tmp_path / "ledger.sqlite3"),
+        ],
+        input=json.dumps({"protocol": "eda-runtime.handshake/v1", "versions": [1]}) + "\n",
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    )
+    lines = process.stdout.splitlines()
+    assert json.loads(lines[0]) == {"protocol": "eda-runtime.handshake/v1", "selected": 1}
