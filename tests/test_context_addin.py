@@ -67,7 +67,8 @@ def test_context_addin_status_is_bounded_to_owned_actions(tmp_path):
 def test_context_addin_refresh_uses_existing_owned_desktop(monkeypatch):
     calls = []
     desktop = SimpleNamespace(
-        odesktop=SimpleNamespace(RefreshToolkitUI=lambda: calls.append("refresh"))
+        odesktop=SimpleNamespace(RefreshToolkitUI=lambda: calls.append("refresh")),
+        personallib="/live/PersonalLib",
     )
     ansys = types.ModuleType("ansys")
     aedt = types.ModuleType("ansys.aedt")
@@ -80,4 +81,40 @@ def test_context_addin_refresh_uses_existing_owned_desktop(monkeypatch):
     monkeypatch.setitem(sys.modules, "ansys.aedt.core", core)
     result = context_addin.refresh(version="2026.1", port=50051, process_id=123)
     assert result["refreshed"] is True
+    assert result["personal_lib"].replace("\\", "/").endswith("live/PersonalLib")
     assert calls == ["refresh"]
+
+
+def test_context_addin_install_prefers_live_personal_lib(tmp_path, monkeypatch):
+    calls = []
+    refreshed = []
+    desktop = SimpleNamespace(
+        personallib=str(tmp_path / "live" / "PersonalLib"),
+        odesktop=SimpleNamespace(RefreshToolkitUI=lambda: refreshed.append(True)),
+    )
+
+    def add_script_to_menu(name, **kwargs):
+        calls.append((name, kwargs))
+        return True
+
+    monkeypatch.setattr(context_addin, "_connect_desktop", lambda **kwargs: desktop)
+    monkeypatch.setitem(
+        sys.modules,
+        "ansys.aedt.core.extensions.customize_automation_tab",
+        SimpleNamespace(add_script_to_menu=add_script_to_menu),
+    )
+    result = context_addin.install(version="2026.1", port=50051, process_id=123)
+    assert result["live_session"] is True
+    assert result["refresh_required"] is False
+    assert all(call[1]["personal_lib"] == desktop.personallib for call in calls)
+    assert all(call[1]["odesktop"] is desktop.odesktop for call in calls)
+    assert refreshed == [True]
+
+
+def test_context_addin_install_rejects_partial_live_identity(tmp_path):
+    try:
+        context_addin.install(tmp_path, version="2026.1")
+    except ValueError as exc:
+        assert "provided together" in str(exc)
+    else:
+        raise AssertionError("partial live identity was accepted")

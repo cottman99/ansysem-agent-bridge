@@ -29,11 +29,41 @@ def _default_personal_lib() -> Path:
     return path.resolve()
 
 
+def _connect_desktop(*, version: str, port: int, process_id: int):
+    import ansys.aedt.core
+
+    return ansys.aedt.core.Desktop(
+        new_desktop=False,
+        version=version,
+        port=port,
+        aedt_process_id=process_id,
+        close_on_exit=False,
+    )
+
+
+def _live_personal_lib(desktop: Any) -> Path:
+    value = getattr(desktop, "personallib", None)
+    if not value:
+        raise RuntimeError("The live AEDT session did not report its PersonalLib path")
+    return Path(value).expanduser().resolve()
+
+
 def _assets_root() -> Path:
     return Path(__file__).parent / "aedt_addin_assets"
 
 
-def install(personal_lib: str | Path | None = None) -> dict[str, Any]:
+def install(
+    personal_lib: str | Path | None = None,
+    *,
+    version: str | None = None,
+    port: int | None = None,
+    process_id: int | None = None,
+) -> dict[str, Any]:
+    live_args = (version, port, process_id)
+    if any(value is not None for value in live_args) and not all(
+        value is not None for value in live_args
+    ):
+        raise ValueError("version, port, and process_id must be provided together")
     try:
         import eda_bridge_runtime  # noqa: F401
         from ansys.aedt.core.extensions.customize_automation_tab import add_script_to_menu
@@ -41,7 +71,21 @@ def install(personal_lib: str | Path | None = None) -> dict[str, Any]:
         raise RuntimeError(
             "PyAEDT and eda-bridge-runtime are required for the Context Add-in"
         ) from exc
-    root = Path(personal_lib).expanduser().resolve() if personal_lib else _default_personal_lib()
+    desktop = None
+    if all(value is not None for value in live_args):
+        desktop = _connect_desktop(version=str(version), port=int(port), process_id=int(process_id))
+    root = (
+        Path(personal_lib).expanduser().resolve()
+        if personal_lib
+        else _live_personal_lib(desktop)
+        if desktop
+        else _default_personal_lib()
+    )
+    if desktop and personal_lib and root != _live_personal_lib(desktop):
+        raise ValueError(
+            f"Explicit PersonalLib {root} does not match live AEDT PersonalLib "
+            f"{_live_personal_lib(desktop)}"
+        )
     _remove_owned_buttons(root, panels=(LEGACY_PANEL, LEGACY_SHARED_PANEL))
     installed = []
     for name, asset in TOOLS.items():
@@ -52,15 +96,19 @@ def install(personal_lib: str | Path | None = None) -> dict[str, Any]:
             copy_to_personal_lib=True,
             panel=PANEL,
             personal_lib=str(root),
+            odesktop=desktop.odesktop if desktop else None,
         )
         if not ok:
             raise RuntimeError(f"PyAEDT did not install Context Add-in action: {name}")
         installed.append(name)
+    if desktop:
+        desktop.odesktop.RefreshToolkitUI()
     return {
         "status": "ready",
         "personal_lib": str(root),
         "installed": installed,
-        "refresh_required": True,
+        "refresh_required": desktop is None,
+        "live_session": bool(desktop),
     }
 
 
@@ -86,21 +134,14 @@ def status(personal_lib: str | Path | None = None) -> dict[str, Any]:
 
 
 def refresh(*, version: str, port: int, process_id: int) -> dict[str, Any]:
-    import ansys.aedt.core
-
-    desktop = ansys.aedt.core.Desktop(
-        new_desktop=False,
-        version=version,
-        port=port,
-        aedt_process_id=process_id,
-        close_on_exit=False,
-    )
+    desktop = _connect_desktop(version=version, port=port, process_id=process_id)
     desktop.odesktop.RefreshToolkitUI()
     return {
         "status": "ready",
         "version": version,
         "port": port,
         "process_id": process_id,
+        "personal_lib": str(_live_personal_lib(desktop)),
         "refreshed": True,
     }
 

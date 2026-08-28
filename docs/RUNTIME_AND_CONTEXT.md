@@ -20,7 +20,9 @@ replay.
 ## Context Add-in
 
 The Add-in uses PyAEDT's supported `add_script_to_menu()` registration under
-`PersonalLib/Toolkits/Project/TabConfig.xml`. It owns only three named actions
+`PersonalLib/Toolkits/Project/TabConfig.xml`. When a live AEDT identity is supplied,
+the installer queries that session for its actual PersonalLib instead of guessing from
+the operating-system account. It owns only three named actions
 in PyAEDT's supported Automation panel and can report or remove that exact
 scope.
 

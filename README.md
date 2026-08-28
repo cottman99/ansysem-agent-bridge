@@ -251,8 +251,9 @@ Install the three small Automation-tab actions with the configured PyAEDT
 profile:
 
 ```console
-ansysem-agent --profile <profile-id> context-addin install
-ansysem-agent context-addin status
+ansysem-agent --profile <profile-id> context-addin install \
+  --version 2026.1 --port <grpc-port> --process-id <aedt-pid>
+ansysem-agent context-addin status --personal-lib <live-personal-lib>
 ansysem-agent --profile <profile-id> context-addin refresh \
   --version <version> --port <grpc-port> --process-id <aedt-pid>
 ```

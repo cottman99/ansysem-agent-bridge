@@ -305,6 +305,10 @@ def build_parser() -> argparse.ArgumentParser:
     for action in ("install", "status", "uninstall"):
         item = context_addin_sub.add_parser(action)
         item.add_argument("--personal-lib", type=Path)
+        if action == "install":
+            item.add_argument("--version")
+            item.add_argument("--port", type=int)
+            item.add_argument("--process-id", type=int)
     context_refresh = context_addin_sub.add_parser("refresh")
     context_refresh.add_argument("--version", required=True)
     context_refresh.add_argument("--port", required=True, type=int)
@@ -317,7 +321,12 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         from .context_addin import install, refresh, status, uninstall
 
         if args.context_addin_command == "install":
-            return install(args.personal_lib)
+            return install(
+                args.personal_lib,
+                version=args.version,
+                port=args.port,
+                process_id=args.process_id,
+            )
         if args.context_addin_command == "status":
             return status(args.personal_lib)
         if args.context_addin_command == "refresh":
