@@ -6,7 +6,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-PANEL = "Panel_EDA_Agent"
+PANEL = "Panel_PyAEDT_Extensions"
+LEGACY_PANEL = "Panel_EDA_Agent"
 TOOLS = {
     "Use Current Design with Agent": "use_current_design.py",
     "Copy Agent Context": "copy_agent_context.py",
@@ -40,6 +41,7 @@ def install(personal_lib: str | Path | None = None) -> dict[str, Any]:
             "PyAEDT and eda-bridge-runtime are required for the Context Add-in"
         ) from exc
     root = Path(personal_lib).expanduser().resolve() if personal_lib else _default_personal_lib()
+    _remove_owned_buttons(root, panels=(LEGACY_PANEL,))
     installed = []
     for name, asset in TOOLS.items():
         ok = add_script_to_menu(
@@ -104,20 +106,27 @@ def refresh(*, version: str, port: int, process_id: int) -> dict[str, Any]:
 
 def uninstall(personal_lib: str | Path | None = None) -> dict[str, Any]:
     from ansys.aedt.core.extensions.customize_automation_tab import tab_map
-    from ansys.aedt.core.extensions.tabconfig_parser import TabConfigParser
 
     root = Path(personal_lib).expanduser().resolve() if personal_lib else _default_personal_lib()
     project_root = root / "Toolkits" / tab_map("Project")
-    tab_config = project_root / "TabConfig.xml"
     removed = []
-    if tab_config.is_file():
-        parser = TabConfigParser(tab_config)
-        for name in TOOLS:
-            parser.remove_button(PANEL, name)
-        parser.save(tab_config)
+    _remove_owned_buttons(root, panels=(PANEL, LEGACY_PANEL))
     for name in TOOLS:
         owned = project_root / name
         if owned.is_dir():
             shutil.rmtree(owned)
             removed.append(name)
     return {"status": "removed", "personal_lib": str(root), "removed": removed}
+
+
+def _remove_owned_buttons(root: Path, *, panels: tuple[str, ...]) -> None:
+    tab_config = root / "Toolkits" / "Project" / "TabConfig.xml"
+    if not tab_config.is_file():
+        return
+    from ansys.aedt.core.extensions.tabconfig_parser import TabConfigParser
+
+    parser = TabConfigParser(tab_config)
+    for panel in panels:
+        for name in TOOLS:
+            parser.remove_button(panel, name)
+    parser.save(tab_config)

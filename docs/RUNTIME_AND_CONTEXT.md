@@ -21,7 +21,8 @@ replay.
 
 The Add-in uses PyAEDT's supported `add_script_to_menu()` registration under
 `PersonalLib/Toolkits/Project/TabConfig.xml`. It owns only three named actions
-in `Panel_EDA_Agent` and can report or remove that exact scope.
+in PyAEDT's supported Automation panel and can report or remove that exact
+scope.
 
 Each capture writes the exact active project/design identity to the private
 AnsysEM Agent runtime directory and places a checksummed `EDA_CONTEXT/v1` token
