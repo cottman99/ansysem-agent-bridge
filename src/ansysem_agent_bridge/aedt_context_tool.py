@@ -73,13 +73,17 @@ def _desktop_identity() -> dict[str, Any]:
     }
 
 
-def capture_context(*, make_current: bool = False, copy_to_clipboard: bool = True) -> str:
+def store_context(
+    identity: dict[str, Any],
+    *,
+    connection_id: str | None = None,
+    make_current: bool = False,
+) -> str:
     from eda_bridge_runtime import EDAContext
 
-    identity = _desktop_identity()
     stable = json.dumps(
         {
-            "process_id": identity["process_id"],
+            "process_id": identity.get("process_id"),
             "project": identity["project"],
             "design": identity["design"],
         },
@@ -104,14 +108,23 @@ def capture_context(*, make_current: bool = False, copy_to_clipboard: bool = Tru
     _write_private_json(path, record)
     if make_current:
         _write_private_json(root / "active.json", record)
+    locator = {"context_id": context_id}
+    if connection_id:
+        locator["connection_id"] = connection_id
     token = EDAContext(
         eda="ansys-electronics-desktop",
         target_kind="design",
-        locator={"context_id": context_id},
+        locator=locator,
         display_name=f"{identity['project_name']}:{identity['design']}",
         generation=generation,
         capabilities_hint=("inspect", "edit", "simulate"),
     ).encode()
+    return token
+
+
+def capture_context(*, make_current: bool = False, copy_to_clipboard: bool = True) -> str:
+    identity = _desktop_identity()
+    token = store_context(identity, make_current=make_current)
     if copy_to_clipboard:
         _copy_text(token)
         action = "selected and copied" if make_current else "copied"

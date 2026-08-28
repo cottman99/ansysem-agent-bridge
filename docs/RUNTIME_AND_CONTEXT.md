@@ -4,6 +4,12 @@ The optional `eda-bridge-runtime` integration gives local and SSH callers the
 same request envelope and ledger. The Agent supplies a concise purpose. Runtime
 and Bridge events inherit it and record observed phase timing separately.
 
+The Runtime Skill, MCP server, and connection registry run on the Agent host.
+`ansysem-agent runtime serve`, the durable worker, AEDT add-in, and AEDT run on
+the EDA host. On a combined host the same adapter is selected through a local
+connection. Capabilities report `execution_host_role=eda-worker` and
+`run_model=durable`.
+
 ## Durable remote work
 
 `ansysem-agent runtime serve` is a long-lived JSON-lines endpoint suitable for
@@ -16,6 +22,22 @@ Transport delivery is at-least-once. Mutations require an idempotency key. The
 same key and operation returns the original job; the same key with different
 content is rejected. A dropped SSH connection never triggers blind mutation
 replay.
+
+Submission, status, and incremental-event responses retain the original job
+Run identity. The Agent-side Runtime projects them into the same compact Run
+view used for synchronous bridges, so a successful status query is not confused
+with completion of the underlying AEDT job.
+
+The profile selected by the registered Runtime connection is inherited by
+detached workers automatically. Agents do not repeat installation or display
+environment details on every durable request.
+
+For a greenfield task, `runtime.capabilities` advertises `project.create`
+without requiring an existing context. The operation creates one isolated
+HFSS 3D Layout Bundle, saves and closes it, verifies it in a fresh AEDT
+session, and returns an opaque context that can immediately drive operations
+such as `project.inspect`. The exact remote project path stays in the private
+host-side context record.
 
 ## Context Add-in
 

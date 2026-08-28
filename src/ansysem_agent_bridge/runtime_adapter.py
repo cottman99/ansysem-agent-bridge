@@ -14,6 +14,7 @@ from .config import agent_home
 from .live_probe import live_hfss3dlayout_probe
 from .operations import export_layout_image
 from .project_bundle import inspect_project_bundle
+from .project_create import create_hfss3dlayout_project
 from .runtime import runtime_snapshot
 from .transaction import execute_operation_plan
 from .workspace import (
@@ -72,6 +73,7 @@ def default_ledger_path() -> Path:
 
 _OPERATIONS = {
     "capabilities",
+    "project.create",
     "project.inspect",
     "runtime.snapshot",
     "layout.export_image",
@@ -89,12 +91,44 @@ class _AnsysAdapterBase:
     name = "ansysem-agent-bridge"
     version = __version__
 
-    def capabilities(self) -> dict[str, Any]:
+    def capabilities(self, target: dict[str, Any] | None = None) -> dict[str, Any]:
+        target = target or {}
+        descriptors = [
+            {
+                "id": operation,
+                "mutates": operation
+                not in {
+                    "capabilities",
+                    "layout.export_image",
+                    "project.inspect",
+                    "runtime.snapshot",
+                    "workspace.status",
+                },
+                "requires_context": False,
+            }
+            for operation in sorted(_OPERATIONS)
+            if operation != "capabilities"
+        ]
+        for descriptor in descriptors:
+            if descriptor["id"] == "project.create":
+                descriptor.update(
+                    {
+                        "target_kind": "hfss-3d-layout-project",
+                        "returns_context": True,
+                        "input_schema": {
+                            "required": ["project", "design", "version"],
+                            "optional": ["profile", "display", "redact_paths"],
+                        },
+                    }
+                )
         return {
             "eda": "ansys-electronics-desktop",
+            "execution_host_role": "eda-worker",
+            "run_model": "durable",
             "session_model": "durable-job",
-            "operations": sorted(_OPERATIONS),
+            "operations": descriptors,
             "escape_lanes": ["typed", "verified-native", "bounded-script"],
+            "target": {key: target[key] for key in ("profile", "display") if key in target},
         }
 
     def execute(self, request, context):
@@ -158,6 +192,16 @@ class _AnsysAdapterBase:
                 self._value(request, "project", required=True), redact_paths=redact
             )
             return {"status": "ready" if result["bundle_complete"] else "blocked", "result": result}
+        if operation == "project.create":
+            return create_hfss3dlayout_project(
+                project=self._value(request, "project", required=True),
+                design=str(self._value(request, "design", required=True)),
+                version=str(self._value(request, "version", required=True)),
+                connection_id=self._value(request, "connection_id"),
+                profile=self._value(request, "profile"),
+                expected_display=self._value(request, "display"),
+                redact_paths=redact,
+            )
         if operation == "runtime.snapshot":
             if request.payload.get("live"):
                 return live_hfss3dlayout_probe(
@@ -253,20 +297,29 @@ def build_runtime(ledger_path: str | Path):
 
 
 class DurableAnsysService:
-    def __init__(self, jobs_path: str | Path, ledger_path: str | Path):
+    def __init__(
+        self,
+        jobs_path: str | Path,
+        ledger_path: str | Path,
+        *,
+        profile_id: str | None = None,
+    ):
         imports = _runtime_imports()
         self.store = imports["JobStore"](jobs_path)
         self.jobs_path = Path(jobs_path).resolve()
         self.ledger_path = Path(ledger_path).resolve()
         self.ResponseEnvelope = imports["ResponseEnvelope"]
         self.spawn = imports["spawn_detached_worker"]
+        self.profile_id = profile_id
 
     def handle(self, request):
         if request.operation == "runtime.job_status":
             return self._job_status(request)
         if request.operation == "runtime.job_events":
             return self._job_events(request)
-        request = self._resolve_context(request)
+        if request.operation == "runtime.capabilities":
+            return build_runtime(self.ledger_path).execute(request)
+        request = self._with_default_profile(self._resolve_context(request))
         if request.target.get("eda") != "ansys-electronics-desktop":
             raise ValueError("request target is not Ansys Electronics Desktop")
         job = self.store.submit(request)
@@ -312,6 +365,15 @@ class DurableAnsysService:
             status="accepted" if job["state"] in {"queued", "running"} else job["state"],
             result={"job": self._public_job(job)},
         )
+
+    def _with_default_profile(self, request):
+        if not self.profile_id or request.target.get("profile"):
+            return request
+        from eda_bridge_runtime import RequestEnvelope
+
+        data = request.to_dict()
+        data["target"] = {**request.target, "profile": self.profile_id}
+        return RequestEnvelope.from_dict(data)
 
     @staticmethod
     def _resolve_context(request):
@@ -359,12 +421,13 @@ class DurableAnsysService:
     def _job_events(self, request):
         job_id = str(request.payload["job_id"])
         self.store.recover_orphans()
+        job = self.store.get(job_id)
         events = self.store.events(job_id, int(request.payload.get("after_cursor", 0)))
         return self.ResponseEnvelope(
             request_id=request.request_id,
             run_id=request.run_id,
             status="passed",
-            result={"job_id": job_id, "events": events},
+            result={"job_id": job_id, "job": self._public_job(job), "events": events},
         )
 
     @staticmethod
@@ -374,6 +437,7 @@ class DurableAnsysService:
             for key in (
                 "job_id",
                 "request_id",
+                "run_id",
                 "state",
                 "result",
                 "created_at",
@@ -382,9 +446,16 @@ class DurableAnsysService:
         }
 
 
-def serve(jobs_path: str | Path, ledger_path: str | Path, input_stream, output_stream) -> None:
+def serve(
+    jobs_path: str | Path,
+    ledger_path: str | Path,
+    input_stream,
+    output_stream,
+    *,
+    profile_id: str | None = None,
+) -> None:
     imports = _runtime_imports()
-    service = DurableAnsysService(jobs_path, ledger_path)
+    service = DurableAnsysService(jobs_path, ledger_path, profile_id=profile_id)
     imports["serve_json_lines"](input_stream, output_stream, service.handle)
 
 

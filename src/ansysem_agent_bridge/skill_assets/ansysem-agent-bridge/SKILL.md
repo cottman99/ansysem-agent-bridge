@@ -9,6 +9,11 @@ Use `ansysem-agent` as the stable public interface. Run it on the AEDT host;
 for remote work, invoke it through SSH rather than exposing a raw AEDT or
 Bridge endpoint.
 
+The Agent-facing Skill and generic Runtime MCP server belong on the Agent host.
+This Bridge, its durable Runtime service, the add-in, and AEDT belong on the EDA
+host. When both roles share a host, keep the same contract through a local
+Runtime connection.
+
 For repeated remote actions, use the generic Runtime's persistent SSH stdio
 transport with `ansysem-agent runtime serve`; do not create one SSH process per
 probe or patch. AnsysEM execution is a durable job: retain its receipt and query

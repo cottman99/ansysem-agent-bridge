@@ -1,5 +1,6 @@
 import io
 import json
+import sqlite3
 import subprocess
 import sys
 
@@ -63,7 +64,55 @@ def test_service_submits_once_for_same_mutating_key(tmp_path, monkeypatch):
     second = service.handle(retry)
     assert first.status == second.status == "accepted"
     assert first.result["job"]["job_id"] == second.result["job"]["job_id"]
+    assert first.result["job"]["run_id"] == request.run_id
+    assert second.result["job"]["run_id"] == request.run_id
     assert len(spawned) == 1
+
+    events = service.handle(
+        _request(
+            operation="runtime.job_events",
+            payload={
+                "mutating": False,
+                "job_id": first.result["job"]["job_id"],
+                "after_cursor": 0,
+            },
+        )
+    )
+    assert events.result["job"]["run_id"] == request.run_id
+    assert events.result["events"]
+
+
+def test_service_inherits_connection_profile_for_detached_worker(tmp_path, monkeypatch):
+    pytest.importorskip("eda_bridge_runtime")
+    spawned = []
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3",
+        tmp_path / "ledger.sqlite3",
+        profile_id="display4-profile",
+    )
+
+    def fake_spawn(command, **kwargs):
+        spawned.append(command)
+        kwargs["store"].record_event(
+            kwargs["job_id"], {"event": "worker.spawned", "pid": 123}
+        )
+        return 123
+
+    monkeypatch.setattr(service, "spawn", fake_spawn)
+    response = service.handle(
+        _request(
+            purpose="Create sanitized project",
+            target={"eda": "ansys-electronics-desktop"},
+            operation="project.create",
+            payload={"mutating": True},
+            idempotency_key="profile-inheritance",
+        )
+    )
+
+    assert response.status == "accepted"
+    assert spawned[0][3:5] == ["--profile", "display4-profile"]
+    stored = service.store.get(response.result["job"]["job_id"])
+    assert stored["request"]["target"]["profile"] == "display4-profile"
 
 
 def test_stdio_returns_job_receipt_before_worker_completion(tmp_path, monkeypatch):
@@ -218,3 +267,25 @@ def test_job_status_recovers_dead_worker_without_replay(tmp_path, monkeypatch):
     )
     assert response.status == "passed"
     assert response.result["job"]["state"] == "orphaned"
+
+
+def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    response = service.handle(
+        _request(
+            operation="runtime.capabilities",
+            payload={"mutating": False},
+            target={"eda": "ansys-electronics-desktop", "display": ":4.0"},
+        )
+    )
+    assert response.status == "passed"
+    capabilities = response.result["data"]["capabilities"]
+    assert capabilities["execution_host_role"] == "eda-worker"
+    assert capabilities["run_model"] == "durable"
+    operations = capabilities["operations"]
+    create = next(item for item in operations if item["id"] == "project.create")
+    assert create["returns_context"] is True
+    with sqlite3.connect(service.jobs_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0

@@ -34,6 +34,23 @@ def test_context_capture_keeps_project_path_out_of_token(tmp_path, monkeypatch):
     assert record["target"]["project"] == "/private/customer/demo.aedt"
 
 
+def test_store_context_accepts_background_identity_without_process_id(tmp_path, monkeypatch):
+    from eda_bridge_runtime import EDAContext
+
+    monkeypatch.setattr(aedt_context_tool, "agent_home", lambda: tmp_path)
+    token = aedt_context_tool.store_context(
+        {
+            "project": "/private/scratch/demo.aedt",
+            "project_name": "demo",
+            "design": "Layout1",
+        },
+        connection_id="ansys-display4",
+    )
+    context = EDAContext.decode(token)
+    assert context.locator["connection_id"] == "ansys-display4"
+    assert "project" not in context.locator
+
+
 def test_context_addin_install_uses_official_pyaedt_registration(tmp_path, monkeypatch):
     calls = []
 
