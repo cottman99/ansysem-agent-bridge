@@ -27,6 +27,16 @@ def test_context_capture_keeps_project_path_out_of_token(tmp_path, monkeypatch):
     from eda_bridge_runtime import EDAContext
 
     context = EDAContext.decode(token)
+    assert context.protocol == "eda-context/v2"
+    assert context.origin["origin_id"].startswith("origin-")
+    assert context.session["display"] == ":4.0"
+    assert context.session["session_id"] == "aedt-99-1234"
+    assert context.target == {
+        "project_name": "demo",
+        "design": "Layout1",
+        "version": "2026.1",
+    }
+    assert context.capabilities["digest"].startswith("cap-")
     assert set(context.locator) == {"context_id"}
     record = json.loads(
         (tmp_path / "runtime" / "contexts" / f"{context.locator['context_id']}.json").read_text()
@@ -49,6 +59,7 @@ def test_store_context_accepts_background_identity_without_process_id(tmp_path, 
     context = EDAContext.decode(token)
     assert context.locator["connection_id"] == "ansys-display4"
     assert "project" not in context.locator
+    assert context.freshness["scope"] == "durable"
 
 
 def test_context_addin_install_uses_official_pyaedt_registration(tmp_path, monkeypatch):

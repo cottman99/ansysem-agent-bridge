@@ -5,14 +5,20 @@ description: "Retrieve version-matched evidence from a configured local Ansys El
 
 # AnsysEM KB Docs
 
-Use the public `ansysem-agent docs` commands. Documentation and generated
-indexes stay on the AEDT host and are not redistributed by this Skill.
+Use Runtime typed operations `docs.status`, `docs.query`, and `docs.get` as the
+normal path. Documentation and generated indexes stay on the AEDT host and are
+not redistributed by this Skill. The public `ansysem-agent docs` commands
+remain setup and direct diagnostic interfaces.
 
 For Bridge setup, project identity, live AEDT state, bounded execution, or
 session lifetime, use `$ansysem-agent-bridge`. A pure documentation request
 must not launch AEDT.
 
-## Preflight and query
+## Query
+
+Submit a version-bound `docs.query` directly when the request already names
+the API, symbol, or task. Use `docs.status` only for setup, missing-index, or
+version ambiguity. The equivalent direct CLI is:
 
 ```text
 ansysem-agent --pretty doctor

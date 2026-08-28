@@ -287,5 +287,32 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     operations = capabilities["operations"]
     create = next(item for item in operations if item["id"] == "project.create")
     assert create["returns_context"] is True
+    assert {"docs.status", "docs.query", "docs.get"}.issubset(
+        {item["id"] for item in operations}
+    )
+    with sqlite3.connect(service.jobs_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_service_queries_docs_synchronously_without_creating_job(tmp_path):
+    docs_root = tmp_path / "docs"
+    markdown = docs_root / "sources" / "markdown" / "hfss"
+    markdown.mkdir(parents=True)
+    (markdown / "api.md").write_text(
+        "# API\n\nUse set_traj to define a bondwire trajectory.\n", encoding="utf-8"
+    )
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    response = service.handle(
+        _request(
+            purpose="Find one version-matched AnsysEM API",
+            target={"eda": "ansys-electronics-desktop", "docs_root": str(docs_root)},
+            operation="docs.query",
+            payload={"mutating": False, "query": "set_traj", "module": "hfss", "limit": 6},
+        )
+    )
+    assert response.status == "passed"
+    assert response.result["data"]["bridge"]["results"][0]["source_ref"].endswith("api.md")
     with sqlite3.connect(service.jobs_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0

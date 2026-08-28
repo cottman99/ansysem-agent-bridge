@@ -32,8 +32,9 @@ The profile selected by the registered Runtime connection is inherited by
 detached workers automatically. Agents do not repeat installation or display
 environment details on every durable request.
 
-For a greenfield task, `runtime.capabilities` advertises `project.create`
-without requiring an existing context. The operation creates one isolated
+For a greenfield task, the AnsysEM Skill establishes the typed `project.create`
+operation without requiring an existing context; capability discovery is used
+only when that contract is unknown or stale. The operation creates one isolated
 HFSS 3D Layout Bundle, saves and closes it, verifies it in a fresh AEDT
 session, and returns an opaque context that can immediately drive operations
 such as `project.inspect`. The exact remote project path stays in the private
@@ -49,6 +50,9 @@ in PyAEDT's supported Automation panel and can report or remove that exact
 scope.
 
 Each capture writes the exact active project/design identity to the private
-AnsysEM Agent runtime directory and places a checksummed `EDA_CONTEXT/v1` token
-on the clipboard. The token contains no project path or credentials. Runtime
-resolution rejects missing or stale generations.
+AnsysEM Agent runtime directory and places a checksummed, bounded
+`EDA_CONTEXT/v2` snapshot on the clipboard. It carries origin, live-session
+identity, Display, project/design names, version, capability digest, and
+freshness while keeping the full project path and credentials out of the
+token. Runtime accepts legacy v1 tokens and the adapter rejects missing or
+stale generations.

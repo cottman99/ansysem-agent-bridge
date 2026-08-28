@@ -5,9 +5,14 @@ description: "Inspect and operate an exact local or SSH-hosted Ansys Electronics
 
 # AnsysEM Agent Bridge
 
-Use `ansysem-agent` as the stable public interface. Run it on the AEDT host;
-for remote work, invoke it through SSH rather than exposing a raw AEDT or
-Bridge endpoint.
+Use the EDA Runtime MCP supplied by this Skill as the normal execution path.
+When a copied `EDA_CONTEXT` and this Skill establish one typed operation,
+submit it directly with a concise `purpose`; do not routinely precede it with
+context, connection, capability, doctor, project, or session probes.
+
+The `ansysem-agent` CLI remains the setup, administration, repair, and direct
+diagnostic interface on the AEDT host. Do not assemble SSH commands for normal
+user operations or expose a raw AEDT or Bridge endpoint.
 
 The Agent-facing Skill and generic Runtime MCP server belong on the Agent host.
 This Bridge, its durable Runtime service, the add-in, and AEDT belong on the EDA
@@ -59,9 +64,10 @@ Do not silently choose the newest installation, another project, or another
 design. A `.aedt` file without its required `.aedb/edb.def` is not a complete
 HFSS 3D Layout project bundle.
 
-Prefer a user-copied `EDA_CONTEXT:v1` from the Bridge's AEDT Automation-tab
+Prefer a user-copied rich `EDA_CONTEXT:v2` from the Bridge's AEDT Automation-tab
 actions when available. It resolves through the private host registry and must
-match its generation. Never guess a foreground project or design. The Context
+match its origin, session when live, and generation. Legacy v1 remains
+accepted. Never guess a foreground project or design. The Context
 selects a target but does not authorize editing, simulation, promotion, or
 closing AEDT.
 
@@ -106,10 +112,9 @@ Never overwrite customer input or publish local project paths, credentials,
 license details, vendor documentation, or customer artifacts.
 
 For a mutation, compile task-specific values into typed JSON. Do not put those
-values into this Skill or add a task-specific Bridge command. Use only registered
-operations and assertions and keep `solve_requested` false. For bondwire work,
-use the PyEDB-native adapter, exact object identity and `expected_before`, and
-typed APD fields; never pass a raw APD block or vendor call.
+values or one project type's implementation rules into this Skill. Use only
+registered operations and assertions; capability schemas own specialized
+fields and preconditions.
 
 Use one-shot `ansysem-operation-plan/v1` only when the complete final change is
 already known:

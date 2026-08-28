@@ -79,7 +79,7 @@ def store_context(
     connection_id: str | None = None,
     make_current: bool = False,
 ) -> str:
-    from eda_bridge_runtime import EDAContext
+    from eda_bridge_runtime import EDAContext, capability_digest, stable_origin_id
 
     stable = json.dumps(
         {
@@ -111,13 +111,42 @@ def store_context(
     locator = {"context_id": context_id}
     if connection_id:
         locator["connection_id"] = connection_id
+    capability_states = {name: "available" for name in ("inspect", "edit", "simulate")}
+    process_id = identity.get("process_id")
+    port = identity.get("port")
+    live = process_id is not None
     token = EDAContext(
         eda="ansys-electronics-desktop",
         target_kind="design",
         locator=locator,
         display_name=f"{identity['project_name']}:{identity['design']}",
         generation=generation,
-        capabilities_hint=("inspect", "edit", "simulate"),
+        capabilities_hint=tuple(capability_states),
+        origin={"origin_id": stable_origin_id("ansys-electronics-desktop")},
+        session={
+            "session_id": f"aedt-{process_id}-{port}" if live else None,
+            "display": identity.get("display"),
+            "process_id": process_id,
+            "port": port,
+            "profile": identity.get("profile"),
+            "state": "live" if live else "closed",
+        },
+        target={
+            "project_name": identity["project_name"],
+            "design": identity["design"],
+            "version": identity.get("version"),
+        },
+        capabilities={
+            "states": capability_states,
+            "digest": capability_digest(capability_states),
+        },
+        freshness={
+            "scope": "live" if live else "durable",
+            "generation": generation,
+            "captured_at": record["captured_at"],
+            "state": "captured-live" if live else "reopenable",
+            "expires_on": "session-restart" if live else None,
+        },
     ).encode()
     return token
 

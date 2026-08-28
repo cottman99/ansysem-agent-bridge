@@ -11,6 +11,8 @@ from typing import Any
 from . import __version__
 from .capabilities import capability_map
 from .config import agent_home
+from .discovery import select_installation
+from .docs_backend import docs_status, get_doc, query_docs
 from .live_probe import live_hfss3dlayout_probe
 from .operations import export_layout_image
 from .project_bundle import inspect_project_bundle
@@ -73,6 +75,9 @@ def default_ledger_path() -> Path:
 
 _OPERATIONS = {
     "capabilities",
+    "docs.status",
+    "docs.query",
+    "docs.get",
     "project.create",
     "project.inspect",
     "runtime.snapshot",
@@ -103,6 +108,9 @@ class _AnsysAdapterBase:
                     "project.inspect",
                     "runtime.snapshot",
                     "workspace.status",
+                    "docs.status",
+                    "docs.query",
+                    "docs.get",
                 },
                 "requires_context": False,
             }
@@ -121,8 +129,26 @@ class _AnsysAdapterBase:
                         },
                     }
                 )
+            if descriptor["id"] == "docs.status":
+                descriptor["input_schema"] = {
+                    "required": [],
+                    "optional": ["instance", "docs_root"],
+                }
+            if descriptor["id"] == "docs.query":
+                descriptor["input_schema"] = {
+                    "required": ["query"],
+                    "optional": ["instance", "docs_root", "module", "limit"],
+                }
+            if descriptor["id"] == "docs.get":
+                descriptor["input_schema"] = {
+                    "required": ["source_ref"],
+                    "optional": ["instance", "docs_root", "focus", "max_chars"],
+                }
+        from eda_bridge_runtime import stable_origin_id
+
         return {
             "eda": "ansys-electronics-desktop",
+            "origin_id": stable_origin_id("ansys-electronics-desktop"),
             "execution_host_role": "eda-worker",
             "run_model": "durable",
             "session_model": "durable-job",
@@ -185,6 +211,42 @@ class _AnsysAdapterBase:
                     project=self._value(request, "project"),
                     docs_root=self._value(request, "docs_root"),
                     display=self._value(request, "display"),
+                ),
+            }
+        if operation.startswith("docs."):
+            if request.is_mutating:
+                raise ValueError("AnsysEM documentation operations require payload.mutating=false")
+            explicit_root = self._value(request, "docs_root")
+            if explicit_root:
+                root = Path(str(explicit_root)).expanduser().resolve()
+            else:
+                configured = os.environ.get("ANSYSEM_DOC_ROOT")
+                if configured:
+                    root = Path(configured).expanduser().resolve()
+                else:
+                    installation = select_installation(self._value(request, "instance"))
+                    if not installation.docs_root:
+                        raise ValueError("No AnsysEM documentation root is configured")
+                    root = Path(installation.docs_root).expanduser().resolve()
+            if operation == "docs.status":
+                return {"status": "ready", "docs": docs_status(root)}
+            if operation == "docs.query":
+                return {
+                    "status": "ready",
+                    **query_docs(
+                        root,
+                        str(request.payload.get("query") or ""),
+                        module=request.payload.get("module"),
+                        limit=int(request.payload.get("limit", 6)),
+                    ),
+                }
+            return {
+                "status": "ready",
+                **get_doc(
+                    root,
+                    str(request.payload.get("source_ref") or ""),
+                    focus=request.payload.get("focus"),
+                    max_chars=int(request.payload.get("max_chars", 4000)),
                 ),
             }
         if operation == "project.inspect":
@@ -317,7 +379,7 @@ class DurableAnsysService:
             return self._job_status(request)
         if request.operation == "runtime.job_events":
             return self._job_events(request)
-        if request.operation == "runtime.capabilities":
+        if request.operation == "runtime.capabilities" or request.operation.startswith("docs."):
             return build_runtime(self.ledger_path).execute(request)
         request = self._with_default_profile(self._resolve_context(request))
         if request.target.get("eda") != "ansys-electronics-desktop":

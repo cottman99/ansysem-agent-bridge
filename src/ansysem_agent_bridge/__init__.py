@@ -9,4 +9,4 @@ __all__ = [
     "TargetIdentity",
 ]
 
-__version__ = "0.2.0a1"
+__version__ = "0.2.0a2"

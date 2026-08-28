@@ -80,9 +80,11 @@ and observation are independent phases linked by request, run, job, and trace
 identities. SSH disconnection does not authorize replay and does not define job
 failure.
 
-The AEDT Automation-tab Context Add-in creates `EDA_CONTEXT/v1` locators. Full
-project paths stay in a private host registry and are resolved only by the
-AnsysEM adapter. The Context protocol belongs to the generic Runtime; active
+The AEDT Automation-tab Context Add-in creates bounded `EDA_CONTEXT/v2`
+snapshots with origin, session, Display, project/design name, capabilities,
+and freshness. Full project paths stay in a private host registry and are
+resolved by the AnsysEM adapter inside the submitted operation. Legacy v1
+remains accepted. The Context protocol belongs to the generic Runtime; active
 AEDT discovery belongs to this Bridge.
 
 For a fully known one-shot mutation, the Bridge copies the frozen source to an
