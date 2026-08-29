@@ -8,7 +8,7 @@ on:
       tag:
         description: Existing release tag to publish
         required: true
-        default: v0.2.0a2
+        default: v0.2.0a3
 
 permissions:
   contents: read
@@ -57,6 +57,8 @@ jobs:
           name: python-package-distributions
           path: dist/
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          skip-existing: true
 
   publish_github:
     if: github.event_name == 'release'
@@ -90,7 +92,8 @@ jobs:
           for attempt in 1 2 3 4 5 6; do
             if python -m pip install --no-cache-dir "ansysem-agent-bridge==$VERSION"; then
               ansysem-agent --help >/dev/null
-              python -c "import ansysem_agent_bridge, eda_bridge_runtime; assert ansysem_agent_bridge.__version__ == '$VERSION'; assert eda_bridge_runtime.__version__ == '0.1.0a5'"
+              python -c "import ansysem_agent_bridge; assert ansysem_agent_bridge.__version__ == '$VERSION'"
+              python -m pip check
               exit 0
             fi
             sleep 10
