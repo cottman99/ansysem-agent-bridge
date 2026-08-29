@@ -7,7 +7,7 @@ resolution-markers = [
 
 [[package]]
 name = "ansysem-agent-bridge"
-version = "0.2.0a2"
+version = "0.2.0a4"
 source = { editable = "." }
 dependencies = [
     { name = "eda-bridge-runtime" },
@@ -22,7 +22,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eda-bridge-runtime", specifier = ">=0.1.0a5,<0.2" },
+    { name = "eda-bridge-runtime", specifier = ">=0.1.0a9,<0.2" },
     { name = "jsonschema", marker = "extra == 'test'", specifier = ">=4.23,<5" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<10" },
     { name = "ruff", marker = "extra == 'test'", specifier = ">=0.12,<1" },
@@ -48,11 +48,11 @@ wheels = [
 
 [[package]]
 name = "eda-bridge-runtime"
-version = "0.1.0a5"
+version = "0.1.0a21"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/2e/83/cbb84c7140daefacb2f64635d41531b48a9b321c7eb2ae92def6679d875c/eda_bridge_runtime-0.1.0a5.tar.gz", hash = "sha256:3f82a455230b9a5bb675253c553279921e8ff5e2dfb8451b1329d74abcc37dbc", size = 76117 }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/0d/d5266de2b429ed990b2f6937d85584ed5d60f4c6baf8cec9ef9ad09339a6/eda_bridge_runtime-0.1.0a21.tar.gz", hash = "sha256:44e5994a7f389ed6edf4ffcbcc8bf14d68637155ba20c8aa5db399f3c25a908c", size = 2863590 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/84/2e7dbae38f60899884e91507cdfdb4678d4abab45264a8864c14ce05d7bf/eda_bridge_runtime-0.1.0a5-py3-none-any.whl", hash = "sha256:9eaaa69dbddcb4ff77e5b76cd3134e539b8a2bceb157463143900f8b34f8c3c4", size = 33763 },
+    { url = "https://files.pythonhosted.org/packages/1d/65/68db4481772709ba2487a09c9880b34ee7d40bc2914c9894a8209f9d1547/eda_bridge_runtime-0.1.0a21-py3-none-any.whl", hash = "sha256:d15974b3fdd48362fd5e53cc3f49eb371abd80d7c1e5e6c0713a42a9ad9b9a42", size = 47924 },
 ]
 
 [[package]]
