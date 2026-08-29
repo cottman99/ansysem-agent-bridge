@@ -3,6 +3,7 @@ import json
 import sqlite3
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -33,6 +34,43 @@ def test_runtime_adapter_requires_optional_runtime(monkeypatch):
     monkeypatch.setattr("builtins.__import__", blocked)
     with pytest.raises(RuntimeError, match="not installed"):
         runtime_adapter._runtime_imports()
+
+
+@pytest.mark.parametrize(
+    ("operation", "function_name"),
+    [
+        ("workspace.rollback", "rollback_workspace"),
+        ("workspace.abort", "abort_workspace"),
+    ],
+)
+def test_workspace_revision_is_forwarded_as_keyword_only(monkeypatch, operation, function_name):
+    observed = {}
+
+    def fake_workspace_action(workspace, *, expected_workspace_revision, redact_paths):
+        observed.update(
+            workspace=workspace,
+            expected_workspace_revision=expected_workspace_revision,
+            redact_paths=redact_paths,
+        )
+        return {"status": "passed"}
+
+    monkeypatch.setattr(runtime_adapter, function_name, fake_workspace_action)
+    request = SimpleNamespace(
+        operation=operation,
+        payload={
+            "workspace": "/scratch/candidate",
+            "expected_workspace_revision": "revision-one",
+            "redact_paths": True,
+        },
+        target={},
+    )
+
+    assert runtime_adapter._AnsysAdapterBase()._dispatch(request) == {"status": "passed"}
+    assert observed == {
+        "workspace": "/scratch/candidate",
+        "expected_workspace_revision": "revision-one",
+        "redact_paths": True,
+    }
 
 
 def test_service_submits_once_for_same_mutating_key(tmp_path, monkeypatch):

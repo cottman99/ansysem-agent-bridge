@@ -80,7 +80,7 @@ install and enable the Runtime MCP/plugin on that Agent host as described by
 the [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime); the
 AEDT-only host does not need the Agent-facing plugin.
 
-Version `0.2.0a4` uses Runtime `0.1.0a9` or newer so capability-proven project
+Version `0.2.0a5` uses Runtime `0.1.0a9` or newer so capability-proven project
 and documentation reads can use the statically safe `eda.read` lane while
 mutations remain on `eda.submit`.
 
