@@ -29,10 +29,12 @@ def _docs_fixture(tmp_path: Path) -> Path:
 def test_query_and_get_use_bounded_source_refs(tmp_path: Path) -> None:
     root = _docs_fixture(tmp_path)
     result = query_docs(root, "AddRefPortUsingEdges", module="hfss_3d_layout")
+    assert result["result_count"] == len(result["results"])
     assert len(result["results"]) == 1
     source_ref = result["results"][0]["source_ref"]
     assert source_ref == "sources/markdown/hfss_3d_layout/ScriptingGuide.md"
     expanded = get_doc(root, source_ref, focus="AddRefPortUsingEdges")
+    assert expanded["returned_chars"] == len(expanded["excerpt"])
     assert "assigns a reference edge" in expanded["excerpt"]
 
 

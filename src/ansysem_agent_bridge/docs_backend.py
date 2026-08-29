@@ -219,6 +219,7 @@ def query_docs(
         "search_mode": "local-index+bounded-content"
         if any(item.get("kind") == "content" for item in results)
         else "local-index",
+        "result_count": len(results),
         "results": results,
         "evidence_boundary": "Documentation matches are not runtime execution evidence.",
     }
@@ -247,6 +248,7 @@ def get_doc(
         "source_ref": source_ref,
         "focus": focus,
         "excerpt": excerpt,
+        "returned_chars": len(excerpt),
         "truncated": start + len(excerpt) < len(text),
         "evidence_boundary": "This is local documentation evidence, not runtime validation.",
     }
