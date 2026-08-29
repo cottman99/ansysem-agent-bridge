@@ -11,6 +11,9 @@ version = "0.2.0a2"
 source = { editable = "." }
 
 [package.optional-dependencies]
+runtime = [
+    { name = "eda-bridge-runtime" },
+]
 test = [
     { name = "jsonschema" },
     { name = "pytest" },
@@ -19,6 +22,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "eda-bridge-runtime", marker = "extra == 'runtime'", specifier = ">=0.1.0a1,<0.2" },
     { name = "jsonschema", marker = "extra == 'test'", specifier = ">=4.23,<5" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<10" },
     { name = "ruff", marker = "extra == 'test'", specifier = ">=0.12,<1" },
@@ -40,6 +44,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
+]
+
+[[package]]
+name = "eda-bridge-runtime"
+version = "0.1.0a5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/83/cbb84c7140daefacb2f64635d41531b48a9b321c7eb2ae92def6679d875c/eda_bridge_runtime-0.1.0a5.tar.gz", hash = "sha256:3f82a455230b9a5bb675253c553279921e8ff5e2dfb8451b1329d74abcc37dbc", size = 76117 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/84/2e7dbae38f60899884e91507cdfdb4678d4abab45264a8864c14ce05d7bf/eda_bridge_runtime-0.1.0a5-py3-none-any.whl", hash = "sha256:9eaaa69dbddcb4ff77e5b76cd3134e539b8a2bceb157463143900f8b34f8c3c4", size = 33763 },
 ]
 
 [[package]]
