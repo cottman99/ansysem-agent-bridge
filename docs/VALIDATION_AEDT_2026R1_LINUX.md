@@ -3,7 +3,8 @@
 Date: 2026-08-27
 Release candidates: `0.1.0a1` for read/export, `0.1.0a2` for native typed
 transactions, `0.1.0a3` for typed bondwire transactions, and `0.2.0a1` for
-resumable candidate workspaces
+resumable candidate workspaces; `0.2.0a5` revalidates Runtime-driven candidate
+abort and rollback dispatch
 Environment: Linux, AEDT 2026.1.0, PyAEDT 1.4.0, PyEDB 0.82.0, Python 3.11
 
 ## Public-safe result
@@ -118,6 +119,27 @@ and promotion took about 46 and 45 seconds respectively. Candidate cloning
 itself used reflinks; the dominant remaining cost was owned AEDT/PyEDB
 save-close-fresh-reopen work plus PyEDB's fallback from unavailable
 shared-memory IPC to standard gRPC.
+
+## Runtime candidate-abort regression acceptance (`0.2.0a5`)
+
+A public-safe greenfield case created an empty HFSS 3D Layout source, began one
+candidate workspace, carried the returned optimistic revision into abort, and
+freshly inspected the frozen source. The same case ran independently through
+Codex and a dedicated Pi Agent profile on `DISPLAY=:4.0`.
+
+The first run exposed a general Runtime-adapter defect: `workspace.abort` and
+the adjacent `workspace.rollback` dispatch passed a keyword-only revision as a
+positional argument. Both Agents supplied the correct observed revision, both
+received the same typed failure, and neither claimed success. The adapter now
+forwards `expected_workspace_revision` explicitly; regression tests cover both
+operations.
+
+After installing the candidate wheel into the isolated remote environment,
+both fresh Agent runs passed all four Runtime calls. Each verified a complete
+unchanged source Bundle, an aborted workspace with its candidate removed, no
+promoted output, and no solve. All owned scratch and processes were checked and
+removed. The public evidence retains no paths, project files, Agent trace, job
+identity, or customer data.
 
 ## Claim boundary
 

@@ -333,9 +333,17 @@ class _AnsysAdapterBase:
         if not revision:
             raise ValueError(f"{operation} requires expected_workspace_revision")
         if operation == "workspace.rollback":
-            return rollback_workspace(workspace, revision, redact_paths=redact)
+            return rollback_workspace(
+                workspace,
+                expected_workspace_revision=revision,
+                redact_paths=redact,
+            )
         if operation == "workspace.abort":
-            return abort_workspace(workspace, revision, redact_paths=redact)
+            return abort_workspace(
+                workspace,
+                expected_workspace_revision=revision,
+                redact_paths=redact,
+            )
         return promote_workspace(
             workspace,
             output_project=request.payload["output"],
