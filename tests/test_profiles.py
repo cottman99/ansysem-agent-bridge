@@ -44,6 +44,7 @@ def test_profile_rejects_wrong_python(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("ANSYSEM_AGENT_HOME", str(tmp_path / "agent-home"))
     wrong_python = tmp_path / "python"
     wrong_python.write_text("not an interpreter", encoding="utf-8")
+    wrong_python.chmod(0o755)
     upsert_profile(
         {
             "profile_id": "wrong",
