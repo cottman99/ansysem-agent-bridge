@@ -1,5 +1,11 @@
 # AnsysEM Agent Bridge
 
+<p align="center">
+  <img src="docs/assets/readme/logo.png" width="150" alt="AnsysEM Agent Bridge logo">
+</p>
+
+<p align="center"><strong>Ask an Agent to inspect or change the intended AEDT design without treating your original project as a scratchpad.</strong></p>
+
 [![PyPI](https://img.shields.io/pypi/v/ansysem-agent-bridge)](https://pypi.org/project/ansysem-agent-bridge/)
 [![CI](https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml)
 
@@ -14,26 +20,20 @@ artifacts.
 > AEDT, HFSS, Maxwell, Q3D, and related names are trademarks of their respective
 > owners.
 
-![Abstract visualization of an Agent connected through a bounded local bridge to an electromagnetic design environment](docs/assets/ansysem-agent-bridge-hero.png)
+![An operator protects the original electromagnetic model, works on a copy, reopens it for verification, and receives evidence](docs/assets/readme/ansysem-user-value.png)
 
-## Why a Bridge
+## From request to verified deliverable
+
+Choose the project and design, then ask for a check or bounded change in normal
+engineering language. The Bridge protects the original, uses an owned copy,
+reopens the saved state for readback, and returns the result with evidence.
 
 EDA automation fails when an Agent must guess the active project, API version,
 object-ID domain, execution lane, or whether a visible result reached the
 solver. The Bridge turns those implicit assumptions into machine-readable
-contracts:
-
-```text
-User goal
-   ↓
-Agent + one required Bridge Skill
-   ↓
-target identity + capability state + bounded operation
-   ↓
-PyAEDT / PyEDB / native AEDT adapter
-   ↓
-readback + artifact hash + explicit evidence boundary
-```
+contracts. The implementation details remain in the
+[architecture document](docs/ARCHITECTURE.md); the user path above is the
+product promise.
 
 The Bridge owns runtime facts and bounded tool access. A future Harness may
 compose it with workflows, authorization, engineering memory, and promotion
