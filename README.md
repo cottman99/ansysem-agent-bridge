@@ -1,5 +1,8 @@
 # AnsysEM Agent Bridge
 
+[![PyPI](https://img.shields.io/pypi/v/ansysem-agent-bridge)](https://pypi.org/project/ansysem-agent-bridge/)
+[![CI](https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml)
+
 AnsysEM Agent Bridge is an unofficial, local-first documentation and
 automation bridge for Ansys Electronics Desktop (AEDT). It gives a
 general-purpose Agent a stable CLI for exact target identity, capability
@@ -65,7 +68,7 @@ rules.
 ## Install
 
 ```console
-pipx install git+https://github.com/cottman99/ansysem-agent-bridge.git
+pipx install ansysem-agent-bridge
 ansysem-agent --pretty doctor
 ```
 

@@ -93,9 +93,7 @@ def test_service_inherits_connection_profile_for_detached_worker(tmp_path, monke
 
     def fake_spawn(command, **kwargs):
         spawned.append(command)
-        kwargs["store"].record_event(
-            kwargs["job_id"], {"event": "worker.spawned", "pid": 123}
-        )
+        kwargs["store"].record_event(kwargs["job_id"], {"event": "worker.spawned", "pid": 123})
         return 123
 
     monkeypatch.setattr(service, "spawn", fake_spawn)
@@ -287,9 +285,7 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     operations = capabilities["operations"]
     create = next(item for item in operations if item["id"] == "project.create")
     assert create["returns_context"] is True
-    assert {"docs.status", "docs.query", "docs.get"}.issubset(
-        {item["id"] for item in operations}
-    )
+    assert {"docs.status", "docs.query", "docs.get"}.issubset({item["id"] for item in operations})
     with sqlite3.connect(service.jobs_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
 
