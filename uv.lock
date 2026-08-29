@@ -9,11 +9,11 @@ resolution-markers = [
 name = "ansysem-agent-bridge"
 version = "0.2.0a2"
 source = { editable = "." }
-
-[package.optional-dependencies]
-runtime = [
+dependencies = [
     { name = "eda-bridge-runtime" },
 ]
+
+[package.optional-dependencies]
 test = [
     { name = "jsonschema" },
     { name = "pytest" },
@@ -22,7 +22,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eda-bridge-runtime", marker = "extra == 'runtime'", specifier = ">=0.1.0a1,<0.2" },
+    { name = "eda-bridge-runtime", specifier = ">=0.1.0a5,<0.2" },
     { name = "jsonschema", marker = "extra == 'test'", specifier = ">=4.23,<5" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<10" },
     { name = "ruff", marker = "extra == 'test'", specifier = ">=0.12,<1" },

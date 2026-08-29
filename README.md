@@ -69,6 +69,14 @@ pipx install git+https://github.com/cottman99/ansysem-agent-bridge.git
 ansysem-agent --pretty doctor
 ```
 
+Installing `ansysem-agent-bridge` also installs the small
+`eda-bridge-runtime` Python library automatically. This makes
+`ansysem-agent runtime serve` and the Context Add-in available without asking
+the user to choose an extra package. If the Agent runs on another machine,
+install and enable the Runtime MCP/plugin on that Agent host as described by
+the [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime); the
+AEDT-only host does not need the Agent-facing plugin.
+
 Configure one explicit installation. Documentation is optional and remains on
 the AEDT host:
 

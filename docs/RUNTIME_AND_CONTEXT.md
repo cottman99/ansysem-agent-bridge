@@ -1,6 +1,6 @@
 # Generic Runtime and AEDT Context
 
-The optional `eda-bridge-runtime` integration gives local and SSH callers the
+The automatically installed `eda-bridge-runtime` integration gives local and SSH callers the
 same request envelope and ledger. The Agent supplies a concise purpose. Runtime
 and Bridge events inherit it and record observed phase timing separately.
 
