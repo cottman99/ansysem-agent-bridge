@@ -6,9 +6,11 @@ description: "Inspect and operate an exact local or SSH-hosted Ansys Electronics
 # AnsysEM Agent Bridge
 
 Use the EDA Runtime MCP supplied by this Skill as the normal execution path.
-When a copied `EDA_CONTEXT` and this Skill establish one typed operation,
-submit it directly with a concise `purpose`; do not routinely precede it with
-context, connection, capability, doctor, project, or session probes.
+When a copied `EDA_CONTEXT` and this Skill establish one typed operation, use a
+concise `purpose`. Run a known mutation through `eda.submit`. Run a read through
+`eda.read` when its capability metadata is already cached; otherwise discover
+capabilities once, then keep using the safe read lane. Do not routinely add
+context, connection, doctor, project, or session probes.
 
 The `ansysem-agent` CLI remains the setup, administration, repair, and direct
 diagnostic interface on the AEDT host. Do not assemble SSH commands for normal

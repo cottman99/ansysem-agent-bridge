@@ -16,9 +16,11 @@ must not launch AEDT.
 
 ## Query
 
-Submit a version-bound `docs.query` directly when the request already names
-the API, symbol, or task. Use `docs.status` only for setup, missing-index, or
-version ambiguity. The equivalent direct CLI is:
+Submit a version-bound `docs.query` through Runtime's `eda.read` lane when the
+request already names the API, symbol, or task. Discover capabilities once if
+this MCP process has not cached the documentation operation metadata. Use
+`docs.status` only for setup, missing-index, or version ambiguity. The
+equivalent direct CLI is:
 
 ```text
 ansysem-agent --pretty doctor
