@@ -13,6 +13,8 @@ from .capabilities import capability_map
 from .config import agent_home
 from .discovery import select_installation
 from .docs_backend import docs_status, get_doc, query_docs
+from .layout_build import execute_layout_build_plan
+from .layout_solve import execute_layout_solve_plan
 from .live_probe import live_hfss3dlayout_probe
 from .operations import export_layout_image
 from .project_bundle import inspect_project_bundle
@@ -82,6 +84,8 @@ _OPERATIONS = {
     "project.inspect",
     "runtime.snapshot",
     "layout.export_image",
+    "layout.build",
+    "layout.solve",
     "model.apply",
     "workspace.begin",
     "workspace.status",
@@ -129,6 +133,16 @@ class _AnsysAdapterBase:
                         },
                     }
                 )
+            if descriptor["id"] == "layout.build":
+                descriptor["input_schema"] = {
+                    "required": ["plan"],
+                    "plan_schema": "ansysem.hfss3dlayout-build/v1",
+                }
+            if descriptor["id"] == "layout.solve":
+                descriptor["input_schema"] = {
+                    "required": ["plan"],
+                    "plan_schema": "ansysem.hfss3dlayout-solve/v1",
+                }
             if descriptor["id"] == "docs.status":
                 descriptor["input_schema"] = {
                     "required": [],
@@ -300,6 +314,16 @@ class _AnsysAdapterBase:
                 height=int(request.payload.get("height", 1000)),
                 redact_paths=redact,
             )
+        if operation == "layout.build":
+            plan = request.payload.get("plan")
+            if not isinstance(plan, dict):
+                raise ValueError("layout.build requires a structured plan object")
+            return execute_layout_build_plan(plan, redact_paths=redact)
+        if operation == "layout.solve":
+            plan = request.payload.get("plan")
+            if not isinstance(plan, dict):
+                raise ValueError("layout.solve requires a structured plan object")
+            return execute_layout_solve_plan(plan, redact_paths=redact)
         if operation == "model.apply":
             plan = request.payload.get("plan")
             if not isinstance(plan, dict):

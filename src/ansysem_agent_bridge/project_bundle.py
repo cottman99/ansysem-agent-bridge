@@ -165,6 +165,51 @@ def copy_project_bundle(source: str | Path, destination: str | Path) -> dict[str
     }
 
 
+def commit_staged_project_bundle(
+    staged_project: str | Path,
+    output_project: str | Path,
+    *,
+    extra_moves: list[tuple[str | Path, str | Path]] | None = None,
+) -> None:
+    """Commit a staged bundle with the AEDT file as the final visible marker.
+
+    A project bundle spans multiple filesystem entries and therefore cannot be
+    renamed atomically as one object. Move the EDB and any result artifacts
+    first, move the `.aedt` file last, and restore already-moved entries if a
+    later rename fails.
+    """
+
+    staged = Path(staged_project)
+    output = Path(output_project)
+    moves = [(staged.with_suffix(".aedb"), output.with_suffix(".aedb"))]
+    moves.extend((Path(source), Path(destination)) for source, destination in extra_moves or [])
+    moves.append((staged, output))
+    for source, destination in moves:
+        if not source.exists():
+            raise FileNotFoundError(f"staged commit source is missing: {source}")
+        if destination.exists():
+            raise FileExistsError(f"refusing to overwrite commit destination: {destination}")
+
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source, destination in moves:
+            os.replace(source, destination)
+            moved.append((source, destination))
+        sync_directory(output.parent)
+    except Exception as original_error:
+        rollback_failures = []
+        for source, destination in reversed(moved):
+            try:
+                os.replace(destination, source)
+            except OSError as exc:
+                rollback_failures.append(f"{destination}: {exc}")
+        if rollback_failures:
+            raise RuntimeError(
+                "bundle commit failed and rollback was incomplete: " + "; ".join(rollback_failures)
+            ) from original_error
+        raise
+
+
 def inspect_project_bundle(project: str | Path, *, redact_paths: bool = False) -> dict[str, Any]:
     path = Path(project).expanduser().resolve()
     if path.suffix.casefold() != ".aedt":
