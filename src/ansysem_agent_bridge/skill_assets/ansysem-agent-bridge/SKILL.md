@@ -37,6 +37,18 @@ timing metadata are filled and recorded automatically where available.
 - For a combined task, establish the version-matched documented route first,
   then require a separate runtime acceptance gate.
 
+For an engineering operation, use this compact evidence chain: resolve the
+exact EDA Context; query version-matched official documentation; call read-only
+`experience.list`, then `experience.get` only for the closest experience and
+anti-pattern assets; use a compiled shortcut only when its asset id/version/hash,
+applicability, runtime state, and parameters match; otherwise generate one
+governed `native.batch` plan; retain its receipt and independent validation.
+
+Experience assets are advisory and may be stale. They are not APIs,
+authorization, capability declarations, or success evidence. Never execute a
+Markdown asset. Missing or degraded assets must not block governed native
+execution.
+
 ## Establish one exact target
 
 Start read-only:
@@ -83,17 +95,17 @@ authorization before changing lanes.
 
 Prefer, in order:
 
-1. a maintained Bridge semantic operation;
-2. a version-verified PyAEDT, PyEDB, or native AEDT adapter owned by the Bridge;
+1. an eligible asset-bound compiled shortcut when it exactly matches;
+2. a version-verified governed PyAEDT, PyEDB, or native AEDT batch;
 3. bounded GUI assistance only when the API lanes are proven inadequate and
    the action has independent readback.
 
 Do not use blind coordinates, stale screenshots, or GUI appearance as solver
 evidence.
 
-Once a matching Bridge capability is available, call it through its typed JSON
-contract. Do not recreate the same vendor operation in one-off SSH Python or GUI
-steps. Reuse an unchanged runtime `state_revision`; do not repeat environment,
+Compiled shortcuts only compress validated official command groups; they do not
+define Ansys capability coverage. Do not request one wrapper per AEDT method,
+object, plot, or solver case. Reuse an unchanged runtime `state_revision`; do not repeat environment,
 module, window, or object-tree probes without a state change or new evidence need.
 
 ## Bound execution and evidence

@@ -103,6 +103,7 @@ def test_workspace_revision_is_forwarded_as_keyword_only(monkeypatch, operation,
     [
         ("layout.build", "execute_layout_build_plan"),
         ("layout.solve", "execute_layout_solve_plan"),
+        ("native.batch", "execute_native_batch"),
     ],
 )
 def test_layout_workflow_forwards_only_typed_plan(monkeypatch, operation, function_name):
@@ -113,14 +114,20 @@ def test_layout_workflow_forwards_only_typed_plan(monkeypatch, operation, functi
         return {"status": "passed"}
 
     monkeypatch.setattr(runtime_adapter, function_name, fake_execute)
+    plan = {"schema_version": "synthetic/v1"}
+    if operation != "native.batch":
+        plan["version"] = "2026.1"
     request = SimpleNamespace(
         operation=operation,
-        payload={"plan": {"schema_version": "synthetic/v1"}, "redact_paths": True},
+        payload={"plan": plan, "redact_paths": True},
         target={},
     )
 
-    assert runtime_adapter._AnsysAdapterBase()._dispatch(request) == {"status": "passed"}
-    assert observed == {"plan": {"schema_version": "synthetic/v1"}, "redact_paths": True}
+    result = runtime_adapter._AnsysAdapterBase()._dispatch(request)
+    assert result["status"] == "passed"
+    if operation != "native.batch":
+        assert result["compiled_shortcut"]["implements_asset_id"]
+    assert observed == {"plan": plan, "redact_paths": True}
 
 
 def test_service_submits_once_for_same_mutating_key(tmp_path, monkeypatch):
@@ -374,11 +381,44 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     create = next(item for item in operations if item["id"] == "project.create")
     assert create["returns_context"] is True
     by_id = {item["id"]: item for item in operations}
+    assert {item["operation_class"] for item in operations} == {
+        "bridge-infrastructure",
+        "certified-workflow",
+        "generic-native-execution",
+    }
     assert {"docs.status", "docs.query", "docs.get", "layout.build", "layout.solve"}.issubset(by_id)
     assert by_id["layout.build"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-build/v1")
     assert by_id["layout.solve"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-solve/v1")
+    assert by_id["native.batch"]["operation_class"] == "generic-native-execution"
+    assert by_id["native.batch"]["input_schema"]["plan_schema"] == "eda.native-batch/v1"
+    for operation in ("layout.build", "layout.solve", "model.apply"):
+        shortcut = by_id[operation]["compiled_shortcut"]
+        assert shortcut["implements_asset_id"]
+        assert shortcut["fallback"] == "governed_native_execution"
     with sqlite3.connect(service.jobs_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_degraded_experience_disables_shortcuts_but_not_native_execution(monkeypatch):
+    monkeypatch.setattr(
+        runtime_adapter,
+        "shortcut_state",
+        lambda *_args, **_kwargs: {
+            "available": False,
+            "healthy": False,
+            "reason": "asset hash mismatch",
+        },
+    )
+    monkeypatch.setattr(runtime_adapter, "_native_batch_available", lambda: True)
+
+    operations = {
+        item["id"]: item
+        for item in runtime_adapter._AnsysAdapterBase().capabilities({"version": "2026.1"})[
+            "operations"
+        ]
+    }
+    assert operations["layout.build"]["state"]["available"] is False
+    assert operations["native.batch"]["state"]["available"] is True
 
 
 def test_service_queries_docs_synchronously_without_creating_job(tmp_path):

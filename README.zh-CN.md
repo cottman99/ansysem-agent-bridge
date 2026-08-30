@@ -40,6 +40,12 @@ Design。它能检查已有工程，建立维护中的叠层/几何/端口，求
 [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime)，
 因此长任务、重试、耗时和审计使用同一条路径。
 
+新增 PyAEDT 用法不需要再为每个方法增加 Bridge wrapper。Agent 结合版本匹配
+的官方文档和随包提供的小型启动经验库，通过带源指纹、超时、staging、全新
+重开和验收的通用事务执行官方代码。已有 build、solve、model 操作作为与经验
+资产绑定的编译快捷方式保留，用于省 token 和降低转写错误，而不限制官方 API
+的更广覆盖。
+
 ## 从一个明确的 AEDT 安装开始
 
 在 AEDT 主机安装：

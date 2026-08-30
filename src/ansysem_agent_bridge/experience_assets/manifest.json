@@ -1,0 +1,32 @@
+{
+  "schema_version": "eda.experience-library/v1",
+  "asset_schema": "eda.experience-asset/v1",
+  "asset_schema_resource": "eda_bridge_runtime/experience_assets/schemas/experience-asset-v1.schema.json",
+  "provider": "ansysem-agent-bridge",
+  "assets": [
+    {
+      "id": "ansysem.model.apply-transaction",
+      "path": "action_patterns/model-apply.md",
+      "sha256": "ef493002b88c40450dc7dd8901a37e2bbf84efe4f495942caab7bc00bc29cb41",
+      "kind": "action_pattern",
+      "status": "validated",
+      "summary": "Apply a bounded registered model plan to a staged AEDT project and accept it only after fresh-reopen assertions."
+    },
+    {
+      "id": "ansysem.hfss3dlayout.build",
+      "path": "workflows/layout-build.md",
+      "sha256": "076d0caf1ec64bc5d1cc1dc61e44360a40702ff6e073e17658a3a6f8df42b5bb",
+      "kind": "workflow",
+      "status": "validated",
+      "summary": "Create a bounded HFSS 3D Layout project through official PyAEDT and verify the saved project after reopening."
+    },
+    {
+      "id": "ansysem.hfss3dlayout.solve-and-validate",
+      "path": "workflows/layout-solve.md",
+      "sha256": "2c6cbb51972d8cee657024ae236af1d1f8c04beab6980897ab7f322300cee217",
+      "kind": "workflow",
+      "status": "validated",
+      "summary": "Run a bounded HFSS 3D Layout solve job and validate expected native result artifacts without overwriting the source."
+    }
+  ]
+}

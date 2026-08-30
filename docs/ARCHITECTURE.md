@@ -9,6 +9,11 @@ certified workflow, and
 returns machine-readable identity, readback, validation, artifacts, warnings,
 and safe next actions.
 
+The package also carries an independent Bootstrap Experience Library. It gives
+a new Agent a small version-scoped starting point, but is neither execution
+logic nor durable engineering memory. Official docs remain authoritative;
+missing experience only degrades guidance.
+
 The Bridge is useful without a Harness. A Harness may later compose workflows,
 approvals, durable engineering memory, budgets, and promotion policy around the
 same contracts. Skills teach an Agent when and how to call the Bridge; they do
@@ -40,6 +45,8 @@ intent gate -> target resolver -> capability registry -> semantic operation
 3. **Official API reach before wrapper growth.** Use version-matched docs and a
    governed PyAEDT/PyEDB/native batch for new EDA functionality. Stable semantic
    operations are certified workflows or infrastructure, not a replacement API.
+   A certified workflow is only an asset-bound compiled shortcut; asset
+   id/version/hash and applicability are verified before it becomes preferred.
 4. **Readback before success.** A returned success boolean is insufficient.
    Results include the selected identity and operation-specific state or an
    artifact hash.
@@ -65,8 +72,8 @@ The route is selected by required semantics, not convenience:
 | --- | --- | --- |
 | Find a documented symbol or limitation | version-matched local docs | Evidence remains documentation-only |
 | Check files, hashes, or bundle completeness | static host adapter | Never claim live AEDT state |
-| Read or edit EDB concepts offline | typed PyEDB adapter | Require complete EDB and post-operation readback |
-| Read or edit an open AEDT design | typed PyAEDT/native adapter | Require exact runtime identity and health |
+| Read or edit EDB concepts offline | eligible compiled shortcut or governed PyEDB batch | Require complete EDB and post-operation readback |
+| Read or edit an AEDT design | eligible compiled shortcut or governed PyAEDT/native batch | Require exact runtime identity and health |
 | Perform a native operation missing in PyAEDT | narrow native AEDT adapter | Preserve native identifiers and release tests |
 | Assist with a genuinely UI-only action | bounded visual assistance | Only after API lanes are disproved; independent readback is mandatory |
 
@@ -114,9 +121,10 @@ For iterative work, the lifecycle is:
 
 The alpha implements the read-only/static gates, live HFSS 3D Layout snapshot,
 native layout image export, native property/gap-port and PyEDB bondwire
-transaction adapters, plus the candidate workspace lifecycle. A governed
-general official-code lane is not yet implemented; existing raw Python absence
-must not be worked around by indefinitely expanding scene-specific wrappers.
+transaction adapters, candidate workspace lifecycle, and a governed official
+PyAEDT batch with declared scope, source fingerprint, timeout, staging,
+fresh-reopen validation, and promotion. Its policy lint is an accidental-risk
+boundary, not a hostile-code security sandbox.
 
 ## Failure model
 
@@ -146,6 +154,10 @@ A high-frequency recipe is promoted to a certified workflow only when it has:
 - object/property readback and the correct validation layer;
 - redaction, timeout, retry/idempotency, and owned-session cleanup behavior;
 - synthetic CI coverage plus a sanitized real-runtime acceptance record.
+- an eligible packaged experience asset whose id, version, hash,
+  applicability, effect, parameters, validation, and governed-native fallback
+  match the compiled implementation;
+- a receipt containing that binding and the expanded-plan hash.
 
 One missing geometry primitive, plot kind, or solver option does not justify a
 new workflow. This rule keeps the public workflow surface small while the

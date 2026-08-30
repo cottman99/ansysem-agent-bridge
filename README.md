@@ -48,6 +48,13 @@ protected candidates. Local and SSH work use
 [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime), so long
 jobs, retries, timing, and audit follow the same path.
 
+New PyAEDT uses do not require one new Bridge wrapper per method. The Agent
+combines version-matched official docs with a small packaged experience library,
+then runs official code through a governed project transaction with source
+fingerprint, timeout, fresh reopen, and validation. Existing build, solve, and
+model operations remain as asset-bound compiled shortcuts that reduce tokens
+and transcription risk without limiting broader official API reach.
+
 ## Start with an explicit AEDT installation
 
 Install on the AEDT host:

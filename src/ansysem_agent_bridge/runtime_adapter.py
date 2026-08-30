@@ -13,9 +13,18 @@ from .capabilities import capability_map
 from .config import agent_home
 from .discovery import select_installation
 from .docs_backend import docs_status, get_doc, query_docs
+from .experience_shortcuts import (
+    compiled_shortcut_binding,
+    get_asset,
+    list_assets,
+    shortcut_receipt,
+    shortcut_state,
+    validate_shortcut,
+)
 from .layout_build import execute_layout_build_plan
 from .layout_solve import execute_layout_solve_plan
 from .live_probe import live_hfss3dlayout_probe
+from .native_batch import execute_native_batch
 from .operations import export_layout_image
 from .project_bundle import inspect_project_bundle
 from .project_create import create_hfss3dlayout_project
@@ -81,6 +90,8 @@ _OPERATIONS = {
     "docs.status",
     "docs.query",
     "docs.get",
+    "experience.list",
+    "experience.get",
     "project.create",
     "project.inspect",
     "runtime.snapshot",
@@ -90,6 +101,7 @@ _OPERATIONS = {
     "layout.build",
     "layout.solve",
     "model.apply",
+    "native.batch",
     "workspace.begin",
     "workspace.status",
     "workspace.reconcile",
@@ -97,6 +109,20 @@ _OPERATIONS = {
     "workspace.abort",
     "workspace.promote",
 }
+
+_CERTIFIED_WORKFLOWS = {"layout.build", "layout.solve", "model.apply"}
+
+
+def _operation_class(operation: str) -> str:
+    if operation == "native.batch":
+        return "generic-native-execution"
+    if operation in _CERTIFIED_WORKFLOWS:
+        return "certified-workflow"
+    return "bridge-infrastructure"
+
+
+def _native_batch_available() -> bool:
+    return os.name == "posix"
 
 
 class _AnsysAdapterBase:
@@ -108,6 +134,7 @@ class _AnsysAdapterBase:
         descriptors = [
             {
                 "id": operation,
+                "operation_class": _operation_class(operation),
                 "mutates": operation
                 not in {
                     "capabilities",
@@ -118,6 +145,8 @@ class _AnsysAdapterBase:
                     "docs.status",
                     "docs.query",
                     "docs.get",
+                    "experience.list",
+                    "experience.get",
                 },
                 "requires_context": False,
             }
@@ -125,6 +154,11 @@ class _AnsysAdapterBase:
             if operation != "capabilities"
         ]
         for descriptor in descriptors:
+            if descriptor["id"] in _CERTIFIED_WORKFLOWS:
+                descriptor["compiled_shortcut"] = compiled_shortcut_binding(descriptor["id"])
+                descriptor["state"] = shortcut_state(
+                    descriptor["id"], version=str(target.get("version") or "2026.1")
+                )
             if descriptor["id"] == "project.create":
                 descriptor.update(
                     {
@@ -161,6 +195,20 @@ class _AnsysAdapterBase:
                     "required": ["plan"],
                     "plan_schema": "ansysem.hfss3dlayout-solve/v1",
                 }
+            if descriptor["id"] == "native.batch":
+                native_available = _native_batch_available()
+                descriptor.update(
+                    {
+                        "state": {
+                            "available": native_available,
+                            "healthy": native_available,
+                        },
+                        "input_schema": {
+                            "required": ["plan"],
+                            "plan_schema": "eda.native-batch/v1",
+                        },
+                    }
+                )
             if descriptor["id"] == "docs.status":
                 descriptor["input_schema"] = {
                     "required": [],
@@ -175,6 +223,16 @@ class _AnsysAdapterBase:
                 descriptor["input_schema"] = {
                     "required": ["source_ref"],
                     "optional": ["instance", "docs_root", "focus", "max_chars"],
+                }
+            if descriptor["id"] == "experience.list":
+                descriptor["input_schema"] = {
+                    "required": [],
+                    "optional": ["intents", "tags"],
+                }
+            if descriptor["id"] == "experience.get":
+                descriptor["input_schema"] = {
+                    "required": ["asset_id"],
+                    "optional": ["max_chars"],
                 }
         from eda_bridge_runtime import stable_origin_id
 
@@ -281,6 +339,16 @@ class _AnsysAdapterBase:
                     max_chars=int(request.payload.get("max_chars", 4000)),
                 ),
             }
+        if operation == "experience.list":
+            return list_assets(
+                intents=list(request.payload.get("intents") or []),
+                tags=list(request.payload.get("tags") or []),
+            )
+        if operation == "experience.get":
+            return get_asset(
+                str(self._value(request, "asset_id", required=True)),
+                max_chars=int(request.payload.get("max_chars", 8000)),
+            )
         if operation == "project.inspect":
             result = inspect_project_bundle(
                 self._value(request, "project", required=True), redact_paths=redact
@@ -357,19 +425,48 @@ class _AnsysAdapterBase:
             plan = request.payload.get("plan")
             if not isinstance(plan, dict):
                 raise ValueError("layout.build requires a structured plan object")
-            return execute_layout_build_plan(plan, redact_paths=redact)
+            validate_shortcut(operation, version=str(plan.get("version") or ""))
+            result = execute_layout_build_plan(plan, redact_paths=redact)
+            result["compiled_shortcut"] = shortcut_receipt(
+                operation,
+                version=str(plan["version"]),
+                plan=plan,
+                validation_result=result.get("assertions") or {"status": result.get("status")},
+            )
+            return result
         if operation == "layout.solve":
             plan = request.payload.get("plan")
             if not isinstance(plan, dict):
                 raise ValueError("layout.solve requires a structured plan object")
-            return execute_layout_solve_plan(plan, redact_paths=redact)
+            validate_shortcut(operation, version=str(plan.get("version") or ""))
+            result = execute_layout_solve_plan(plan, redact_paths=redact)
+            result["compiled_shortcut"] = shortcut_receipt(
+                operation,
+                version=str(plan["version"]),
+                plan=plan,
+                validation_result=result.get("validation") or {"status": result.get("status")},
+            )
+            return result
         if operation == "model.apply":
             plan = request.payload.get("plan")
             if not isinstance(plan, dict):
                 raise ValueError("model.apply requires a structured plan object")
             plan = dict(plan)
             plan["redact_paths"] = redact
-            return execute_operation_plan(plan)
+            validate_shortcut(operation, version=str(plan.get("version") or ""))
+            result = execute_operation_plan(plan)
+            result["compiled_shortcut"] = shortcut_receipt(
+                operation,
+                version=str(plan["version"]),
+                plan=plan,
+                validation_result=result.get("assertions") or {"status": result.get("status")},
+            )
+            return result
+        if operation == "native.batch":
+            plan = request.payload.get("plan")
+            if not isinstance(plan, dict):
+                raise ValueError("native.batch requires a governed native batch plan")
+            return execute_native_batch(plan, redact_paths=redact)
         if operation == "workspace.begin":
             return begin_workspace(
                 source_project=self._value(request, "source", required=True),

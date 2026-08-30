@@ -7,6 +7,10 @@
   are certified workflows, not a second AEDT API. Prefer governed official
   PyAEDT/PyEDB/native execution and reusable transaction/validation mechanics
   over adding one wrapper per EDA feature.
+- The packaged Bootstrap Experience Library is advisory and independent from
+  execution. Markdown is never executed, missing assets never block native
+  execution, and every non-infrastructure shortcut must match an eligible asset
+  id, version, and content hash.
 - Protect source projects and require persisted state or fresh observation
   before claiming a successful change or solve.
 - Do not publish or create releases without explicit owner authorization.
