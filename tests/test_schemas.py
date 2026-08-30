@@ -129,12 +129,9 @@ def test_workspace_patch_schema_requires_revision_and_stable_assertion_ids() -> 
 
 def test_hfss3dlayout_build_schema_accepts_typed_plan_and_rejects_python() -> None:
     schema = json.loads(
-        (
-            REPO_ROOT
-            / "docs"
-            / "schemas"
-            / "ansysem-hfss3dlayout-build-v1.schema.json"
-        ).read_text(encoding="utf-8")
+        (REPO_ROOT / "docs" / "schemas" / "ansysem-hfss3dlayout-build-v1.schema.json").read_text(
+            encoding="utf-8"
+        )
     )
     plan = {
         "schema_version": "ansysem.hfss3dlayout-build/v1",
@@ -194,12 +191,9 @@ def test_hfss3dlayout_build_schema_accepts_typed_plan_and_rejects_python() -> No
 
 def test_hfss3dlayout_solve_schema_accepts_bounded_sweep_and_report() -> None:
     schema = json.loads(
-        (
-            REPO_ROOT
-            / "docs"
-            / "schemas"
-            / "ansysem-hfss3dlayout-solve-v1.schema.json"
-        ).read_text(encoding="utf-8")
+        (REPO_ROOT / "docs" / "schemas" / "ansysem-hfss3dlayout-solve-v1.schema.json").read_text(
+            encoding="utf-8"
+        )
     )
     plan = {
         "schema_version": "ansysem.hfss3dlayout-solve/v1",

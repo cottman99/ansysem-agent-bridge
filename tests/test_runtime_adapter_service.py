@@ -349,15 +349,9 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     create = next(item for item in operations if item["id"] == "project.create")
     assert create["returns_context"] is True
     by_id = {item["id"]: item for item in operations}
-    assert {"docs.status", "docs.query", "docs.get", "layout.build", "layout.solve"}.issubset(
-        by_id
-    )
-    assert by_id["layout.build"]["input_schema"]["plan_schema"] == (
-        "ansysem.hfss3dlayout-build/v1"
-    )
-    assert by_id["layout.solve"]["input_schema"]["plan_schema"] == (
-        "ansysem.hfss3dlayout-solve/v1"
-    )
+    assert {"docs.status", "docs.query", "docs.get", "layout.build", "layout.solve"}.issubset(by_id)
+    assert by_id["layout.build"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-build/v1")
+    assert by_id["layout.solve"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-solve/v1")
     with sqlite3.connect(service.jobs_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
 

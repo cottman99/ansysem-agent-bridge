@@ -51,9 +51,7 @@ def _length(value: Any, field: str, *, positive: bool) -> str:
 def _point(value: Any, field: str) -> list[str]:
     if not isinstance(value, list) or len(value) != 2:
         raise ValueError(f"{field} must contain exactly two coordinates")
-    return [
-        _length(item, f"{field}[{index}]", positive=False) for index, item in enumerate(value)
-    ]
+    return [_length(item, f"{field}[{index}]", positive=False) for index, item in enumerate(value)]
 
 
 def _length_m(value: str) -> float:
@@ -181,8 +179,7 @@ def validate_layout_build_plan(value: Any) -> dict[str, Any]:
             name in layer_names
             or kind not in {"signal", "dielectric"}
             or material not in material_names
-            or material_kinds[material]
-            != ("conductor" if kind == "signal" else "dielectric")
+            or material_kinds[material] != ("conductor" if kind == "signal" else "dielectric")
         ):
             raise ValueError(f"layers[{index}] is invalid")
         normalized_layers.append(
@@ -190,9 +187,7 @@ def validate_layout_build_plan(value: Any) -> dict[str, Any]:
                 **raw,
                 "name": name,
                 "kind": kind,
-                "thickness": _length(
-                    raw["thickness"], f"layers[{index}].thickness", positive=True
-                ),
+                "thickness": _length(raw["thickness"], f"layers[{index}].thickness", positive=True),
             }
         )
         layer_names.add(name)
