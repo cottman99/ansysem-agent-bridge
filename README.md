@@ -1,91 +1,56 @@
+<p align="center">
+  <strong>English</strong> · <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 # AnsysEM Agent Bridge
 
 <p align="center">
   <img src="docs/assets/readme/logo.png" width="150" alt="AnsysEM Agent Bridge logo">
 </p>
 
-<p align="center"><strong>Ask an Agent to inspect or change the intended AEDT design without treating your original project as a scratchpad.</strong></p>
+<p align="center"><strong>Let your Agent inspect and change the intended AEDT design without using the original project as a scratchpad.</strong></p>
 
-[![PyPI](https://img.shields.io/pypi/v/ansysem-agent-bridge)](https://pypi.org/project/ansysem-agent-bridge/)
-[![CI](https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://pypi.org/project/ansysem-agent-bridge/"><img alt="PyPI" src="https://img.shields.io/pypi/v/ansysem-agent-bridge"></a>
+  <a href="https://pypi.org/project/ansysem-agent-bridge/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/ansysem-agent-bridge"></a>
+  <a href="https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cottman99/ansysem-agent-bridge/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/cottman99/ansysem-agent-bridge"></a>
+</p>
 
-AnsysEM Agent Bridge is an unofficial, local-first documentation and
-automation bridge for Ansys Electronics Desktop (AEDT). It gives a
-general-purpose Agent a stable CLI for exact target identity, capability
-discovery, project-bundle checks, bounded live HFSS 3D Layout readback, typed
-non-overwriting mutations, local documentation retrieval, and evidence-bearing
+![A protected electromagnetic package is edited on a separate copy and freshly reopened for verification](docs/assets/readme/ansysem-user-value-v2.png)
+
+AnsysEM Agent Bridge is an unofficial, local-first bridge for Ansys Electronics
+Desktop. It gives general-purpose Agents such as Codex and Pi Agent a stable
+way to identify the exact project and design, inspect live HFSS 3D Layout state,
+make bounded changes on non-overwriting copies, and return evidence-bearing
 artifacts.
 
-> Alpha software. It is not affiliated with or endorsed by Ansys, Inc. Ansys,
-> AEDT, HFSS, Maxwell, Q3D, and related names are trademarks of their respective
-> owners.
+The Bridge keeps AEDT knowledge and native API behavior on the EDA host.
+Repeated local or SSH work passes through
+[EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime), so long
+jobs, retries, timing, and audit follow one path.
 
-![An operator protects the original electromagnetic model, works on a copy, reopens it for verification, and receives evidence](docs/assets/readme/ansysem-user-value.png)
+> [!IMPORTANT]
+> This project is public alpha software and is not affiliated with or endorsed
+> by Ansys, Inc. Begin with a disposable project and review the capability
+> boundary before using it on important work.
 
-## From request to verified deliverable
+## Start with an explicit AEDT installation
 
-Choose the project and design, then ask for a check or bounded change in normal
-engineering language. The Bridge protects the original, uses an owned copy,
-reopens the saved state for readback, and returns the result with evidence.
-
-EDA automation fails when an Agent must guess the active project, API version,
-object-ID domain, execution lane, or whether a visible result reached the
-solver. The Bridge turns those implicit assumptions into machine-readable
-contracts. The implementation details remain in the
-[architecture document](docs/ARCHITECTURE.md); the user path above is the
-product promise.
-
-The Bridge owns runtime facts and bounded tool access. A future Harness may
-compose it with workflows, authorization, engineering memory, and promotion
-policy without duplicating the Bridge transport or AEDT adapters.
-
-## Current alpha surface
-
-- explicit AEDT installation configuration and discovery;
-- `.aedt` plus `.aedb/edb.def` project-bundle verification;
-- revision-aware compact runtime snapshots;
-- capability descriptors separating declared, compatible, available, healthy,
-  and authorized state;
-- bounded live HFSS 3D Layout identity readback through PyAEDT;
-- native `ZoomToFit` plus `ExportImage` behind a checked image-export command;
-- named runtime profiles for the exact Python, display, module paths, and
-  bounded environment changes;
-- non-overwriting HFSS 3D Layout transactions with registered native and
-  PyEDB bondwire operations, save/close, fresh reopen, and assertions;
-- resumable candidate workspaces with idempotent typed patches, internal
-  checkpoints, rollback, abort, and clean-replay promotion;
-- detached durable jobs with reconnectable receipts, events, and unified
-  execution-ledger timing across local and persistent SSH transport;
-- a lightweight AEDT Automation-tab Context Add-in using secret-free
-  `EDA_CONTEXT/v1` locators;
-- private local documentation query/get commands;
-- one required Bridge Skill and one optional documentation Skill;
-- conflict-safe Skill install, status, and uninstall.
-
-See the [capability matrix](docs/CAPABILITY_MATRIX.md) for exact claims and stop
-rules.
-
-## Install
+Install on the AEDT host:
 
 ```console
 pipx install ansysem-agent-bridge
 ansysem-agent --pretty doctor
 ```
 
-Installing `ansysem-agent-bridge` also installs the small
-`eda-bridge-runtime` Python library automatically. This makes
-`ansysem-agent runtime serve` and the Context Add-in available without asking
-the user to choose an extra package. If the Agent runs on another machine,
-install and enable the Runtime MCP/plugin on that Agent host as described by
-the [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime); the
-AEDT-only host does not need the Agent-facing plugin.
+Installing the package automatically installs its compatible
+`eda-bridge-runtime` Python dependency. You do not need to install a second
+Python package by hand. If the Agent runs on another computer, enable the
+Runtime MCP/plugin on the Agent host; the AEDT-only host does not need the
+Agent-facing plugin.
 
-Version `0.2.0a5` uses Runtime `0.1.0a9` or newer so capability-proven project
-and documentation reads can use the statically safe `eda.read` lane while
-mutations remain on `eda.submit`.
-
-Configure one explicit installation. Documentation is optional and remains on
-the AEDT host:
+Configure one exact AEDT installation instead of silently selecting the newest:
 
 ```console
 ansysem-agent --pretty setup \
@@ -94,216 +59,113 @@ ansysem-agent --pretty setup \
   --docs-root /path/to/private/local/docs
 ```
 
-`setup` installs one small Bridge Skill by default:
+For live work, an administrator pins the matching Python, display, and module
+environment once in a named
+[runtime profile](docs/EXECUTION_CONTEXT_CONTRACT.md). Engineers then select
+the project/design in AEDT or paste the Context copied by the installed add-in
+and describe the task naturally.
 
-- `ansysem-agent-bridge` for setup, exact target identity, runtime state,
-  bounded operation, artifacts, and safe lifecycle;
+## What you can ask your Agent
 
-The separately selectable `ansysem-kb-docs` Skill supports version-matched
-local documentation without launching or mutating AEDT; it is not required for
-runtime operation.
+| Natural-language request | What the Bridge checks |
+| --- | --- |
+| “Which AEDT installation and design am I using?” | Resolves explicit version, project, design, editor, process, host, display, and profile identity. |
+| “Inspect this project before changing anything.” | Verifies the complete project bundle and returns bounded object, port, setup, and revision facts. |
+| “Find the version-matched API for this operation.” | Queries private local documentation and returns focused evidence without launching or mutating AEDT. |
+| “Export a top view of this exact layout.” | Uses the native editor export and labels precisely what the image does and does not prove. |
+| “Apply these known layout or bondwire changes.” | Uses typed operations on a copy, then saves, closes, freshly reopens, and runs exact assertions. |
+| “Keep adjusting this candidate; do not create another customer version yet.” | Reuses one candidate workspace with checkpoints, rollback, and idempotent patches. |
+| “Promote the checked candidate to a new deliverable.” | Replays from the frozen source and commits one immutable output only after final fresh-session checks. |
+| “The connection dropped. Did my AEDT job finish?” | Reads the durable receipt and events without replaying the work. |
 
-## Pin one runtime profile
+See the [capability matrix](docs/CAPABILITY_MATRIX.md) for the exact maintained
+support and stop rule behind each capability.
 
-Do this once on the AEDT host. Before importing live AEDT libraries, the Bridge
-re-executes only its own fixed CLI under the profile's exact Python and
-pre-launch environment; it never accepts an arbitrary command:
+## A safer model-update workflow
 
-```console
-ansysem-agent --pretty profiles set \
-  --profile-id aedt-2026r1-display4 \
-  --python /path/to/exact/python \
-  --display :4.0 \
-  --python-path /path/to/version-matched/modules \
-  --prepend-env LD_LIBRARY_PATH=/path/to/version-matched/libraries
+1. Select or copy the exact AEDT project/design Context.
+2. Inspect the live identity and source bundle.
+3. Begin one task candidate from the frozen source.
+4. Batch compatible edits into typed patches.
+5. Save, close, and freshly reopen before accepting each checkpoint.
+6. Promote once, only when the user asks for a deliverable.
 
-ansysem-agent --pretty profiles show aedt-2026r1-display4
-```
+This avoids both dangerous in-place edits and the opposite failure mode of
+creating a permanent project version for every small correction.
 
-## Inspect before live work
-
-```console
-ansysem-agent --pretty instances list
-ansysem-agent --pretty project inspect --project /path/to/model.aedt
-ansysem-agent --pretty capabilities --project /path/to/model.aedt
-ansysem-agent --pretty runtime-snapshot \
-  --project /path/to/model.aedt --version 2026.1 --display :4.0
-```
-
-Suppress unchanged bounded state with the returned revision:
+For a one-shot, fully known change:
 
 ```console
-ansysem-agent runtime-snapshot \
-  --project /path/to/model.aedt \
-  --since-revision <sha256>
-```
-
-## Live HFSS 3D Layout gate
-
-Run the CLI on the AEDT host. A new session is closed only when the command
-created it:
-
-```console
-ansysem-agent --pretty --profile aedt-2026r1-display4 \
-  runtime-snapshot \
-  --live --project /path/to/model.aedt --version 2026.1
-```
-
-Export a bounded visual artifact through the native editor API:
-
-```console
-ansysem-agent --pretty --profile aedt-2026r1-display4 \
-  layout export-image \
-  --project /path/to/model.aedt \
-  --version 2026.1 \
-  --output /path/to/new-layout-view.png
-```
-
-The image proves only that AEDT exported the named live editor state. It does
-not prove electrical correctness, solver input, mesh, convergence, or results.
-
-## Typed mutation paths
-
-Put task-specific names and values in project-local or streamed JSON, not in the
-Bridge or its Skill. Use one-shot `model apply` when the complete mutation and
-its final assertions are already known:
-
-```console
-ansysem-agent --pretty --profile aedt-2026r1-display4 \
+ansysem-agent --pretty --profile <profile-id> \
   model apply --plan /path/to/operation-plan.json --redact-paths
 ```
 
-The v1 plan schema is
-[`ansysem-operation-plan-v1`](docs/schemas/ansysem-operation-plan-v1.schema.json).
-The Bridge refuses source/output identity, refuses an existing output, can pin
-the source `.aedt` and `edb.def` hashes, and exposes no arbitrary command,
-Python, or raw APD block field. The native adapter accepts registered property
-and gap-port operations. The PyEDB-native adapter accepts only structured APD
-profile definitions and exact-name bondwire changes. It commits the output
-only after separate fresh AEDT and PyEDB reopens pass all typed assertions. It
-never solves, packages, publishes, or creates a release as part of this
-command.
+For iterative work, use the [candidate workspace lifecycle](docs/WORKSPACE_LIFECYCLE.md).
+Task-specific object names and values stay in project-local plans; they do not
+enter the public Bridge, Skill, or tests.
 
-For iterative work, begin one candidate workspace for the task instead of
-creating a permanent model version for every attempt:
+## Evidence, not screenshots as proof
 
-```console
-ansysem-agent --pretty --profile aedt-2026r1-display4 \
-  model workspace begin \
-  --source /path/to/frozen.aedt \
-  --workspace /path/to/task-candidate \
-  --adapter hfss3dlayout.pyedb-native/v1 \
-  --version 2026.1 --design Layout1
+A maintained real-host acceptance path covers AEDT 2026 R1 on Linux, including
+exact installation/display identity, project creation and inspection, durable
+jobs, non-overwriting workspaces, fresh reopen, typed assertions, and artifact
+hashes. See the
+[sanitized AEDT 2026 R1 acceptance](docs/VALIDATION_AEDT_2026R1_LINUX.md).
 
-ansysem-agent --pretty --profile aedt-2026r1-display4 \
-  model workspace reconcile \
-  --workspace /path/to/task-candidate --plan - < patch.json
-```
+A native layout export proves only that AEDT exported the named live editor
+state. A visible object or screenshot does **not** prove electrical correctness,
+mesh, convergence, or solver completion. Solver claims require separate solver
+evidence.
 
-Each `ansysem-workspace-patch/v1` carries a stable `patch_id`, the last returned
-`expected_workspace_revision`, registered operations, and scoped assertions.
-An identical retry is preserved without another EDA call. A passing reconcile
-creates only an internal checkpoint. Use `status`, `rollback`, or `abort` on the
-same workspace; none creates a customer-facing model revision.
+## The AEDT Context add-in
 
-Batch all compatible edits known from the same observation into one patch so a
-single save/close/fresh-reopen gate validates the cycle. Promotion records its
-intent before launching EDA: after interruption, the exact same request either
-verifies an already-complete output or safely removes only its owned partial
-output and staging directory before replaying.
+The lightweight Automation-tab add-in provides:
 
-Create one immutable output only at the explicit gate:
+- **Use Current Design with Agent**
+- **Copy Agent Context**
+- **Agent Connection Status**
 
-```console
-ansysem-agent --pretty --profile aedt-2026r1-display4 \
-  model workspace promote \
-  --workspace /path/to/task-candidate \
-  --expected-revision <workspace-revision> \
-  --promotion-id <stable-promotion-id> \
-  --output /path/to/revision.aedt
-```
+The copied Context carries a secret-free host-local locator, software identity,
+display label, design target, freshness, and capability hints. Exact private
+paths remain on the AEDT host. Context selects a target; it never grants
+permission to mutate or solve.
 
-Promotion ignores the mutable candidate as a delivery source. It replays the
-typed journal from the frozen source, performs the final assertion registry in
-fresh sessions, verifies full bundle digests, and only then commits the output.
-An exact retry of a committed promotion returns `preserved` without another EDA
-call; output or retention-policy drift is rejected.
-See [candidate workspace lifecycle](docs/WORKSPACE_LIFECYCLE.md).
+See the [execution context contract](docs/EXECUTION_CONTEXT_CONTRACT.md) for
+the exact identity model.
 
-## Documentation
+## Local and remote use follow one path
 
-```console
-ansysem-agent --pretty docs status
-ansysem-agent --pretty docs query "AddRefPortUsingEdges" \
-  --module hfss_3d_layout --limit 6
-ansysem-agent --pretty docs get <source-ref> \
-  --focus "AddRefPortUsingEdges" --max-chars 4000
-```
-
-The package does not contain or redistribute Ansys documentation. Queries use
-a corpus configured on the user's machine.
-
-## Remote topology
-
-Run `ansysem-agent` on the AEDT machine through SSH. One-off administration can
-still call the CLI directly. Repeated Agent operations use one persistent stdio
-channel:
+Repeated operations on the AEDT host use:
 
 ```console
 ansysem-agent runtime serve
 ```
 
-The service persists a job before starting the exact runtime-profile worker,
-returns a receipt immediately, and detaches the worker from the SSH connection.
-Use `runtime job-status` and `runtime job-events` after reconnecting. The generic
-Runtime ledger records declared purpose, actual phases, timing, and normalized
-result. Keep AEDT automation, projects, documentation, and artifacts on that
-host unless the user explicitly exports a sanitized result.
-
-## Explicit AEDT context
-
-Install the three small Automation-tab actions with the configured PyAEDT
-profile:
-
-```console
-ansysem-agent --profile <profile-id> context-addin install \
-  --version 2026.1 --port <grpc-port> --process-id <aedt-pid>
-ansysem-agent context-addin status --personal-lib <live-personal-lib>
-ansysem-agent --profile <profile-id> context-addin refresh \
-  --version <version> --port <grpc-port> --process-id <aedt-pid>
-```
-
-The actions are **Use Current Design with Agent**, **Copy Agent Context**, and
-**Agent Connection Status**. The clipboard token contains only a host-local
-context ID, generation, display label, and capability hints. The exact project
-path remains in the private registry on the AEDT host. A context selects a
-target; it does not authorize mutation or solving.
+Runtime keeps one local or SSH transport, records each concise purpose and
+timing partition, and persists long-job receipts before AEDT work starts.
+Projects, documentation, and artifacts stay on the EDA host unless the user
+deliberately exports a sanitized result. If Agent and AEDT share one computer,
+register a local connection and still use Runtime so retry, audit, and evidence
+behavior remain identical.
 
 ## Safety boundary
 
-- no implicit newest-version selection;
-- no foreground-window guessing;
-- no `.aedt`-only claim for HFSS 3D Layout bundles;
-- no arbitrary Python execution in the default public interface;
-- no source overwrite and no successful mutation claim before fresh reopen;
-- no permanent model version for a candidate attempt; only explicit promotion
-  creates a delivery output;
-- no blind GUI coordinates or screenshot-only success;
+- no implicit newest-version or foreground-window guessing;
+- no claim based on a lone `.aedt` file when an HFSS 3D Layout bundle is required;
+- no arbitrary Python in the default public operation surface;
+- no source overwrite and no accepted mutation before fresh reopen;
+- no permanent version for each candidate attempt;
+- no blind GUI coordinates and no screenshot-only success;
 - no force-kill or silent discard of modified work;
-- no claim that documentation, a visible object, or an exported image proves a
-  successful solve.
+- no claim that documentation, visibility, or image export proves a solve;
+- no customer projects, private paths, or vendor documentation in this public repository.
 
-See [the execution context contract](docs/EXECUTION_CONTEXT_CONTRACT.md),
-[architecture](docs/ARCHITECTURE.md), [release contract](docs/RELEASE_CONTRACT.md),
-[sanitized AEDT 2026 R1 Linux acceptance](docs/VALIDATION_AEDT_2026R1_LINUX.md),
-and [security policy](SECURITY.md).
+## More information
 
-## Development
-
-```console
-python -m pip install -e ".[test]"
-python -m pytest
-```
-
-The public repository contains synthetic tests only. Customer projects and
-vendor documentation are intentionally excluded.
+- [Capability and evidence matrix](docs/CAPABILITY_MATRIX.md)
+- [Candidate workspace lifecycle](docs/WORKSPACE_LIFECYCLE.md)
+- [Execution context contract](docs/EXECUTION_CONTEXT_CONTRACT.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Release contract](docs/RELEASE_CONTRACT.md)
+- [Security policy](SECURITY.md)
+- [Sanitized Linux acceptance](docs/VALIDATION_AEDT_2026R1_LINUX.md)
