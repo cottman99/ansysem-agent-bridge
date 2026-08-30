@@ -7,7 +7,7 @@ resolution-markers = [
 
 [[package]]
 name = "ansysem-agent-bridge"
-version = "0.2.0a6"
+version = "0.2.0a7"
 source = { editable = "." }
 dependencies = [
     { name = "eda-bridge-runtime" },

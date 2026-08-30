@@ -36,6 +36,31 @@ def test_runtime_adapter_requires_optional_runtime(monkeypatch):
         runtime_adapter._runtime_imports()
 
 
+def test_capabilities_advertise_owned_aedt_resource_release():
+    capabilities = runtime_adapter._AnsysAdapterBase().capabilities()
+    operations = {item["id"]: item for item in capabilities["operations"]}
+    assert operations["session.launch"]["resource_lifecycle"]["release_operation"] == (
+        "session.release"
+    )
+    assert operations["runtime.snapshot"]["mutates"] is False
+    assert operations["session.launch"]["mutates"] is True
+    assert operations["session.release"]["mutates"] is True
+    assert operations["session.release"]["input_schema"]["required"] == [
+        "resource_id",
+        "release_handle",
+    ]
+
+
+def test_runtime_snapshot_refuses_hidden_long_lived_session():
+    request = SimpleNamespace(
+        operation="runtime.snapshot",
+        payload={"live": True, "leave_open": True},
+        target={"project": "demo.aedt", "version": "2026.1"},
+    )
+    with pytest.raises(ValueError, match="use session.launch"):
+        runtime_adapter._AnsysAdapterBase()._dispatch(request)
+
+
 @pytest.mark.parametrize(
     ("operation", "function_name"),
     [

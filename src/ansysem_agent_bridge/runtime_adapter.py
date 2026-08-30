@@ -20,6 +20,7 @@ from .operations import export_layout_image
 from .project_bundle import inspect_project_bundle
 from .project_create import create_hfss3dlayout_project
 from .runtime import runtime_snapshot
+from .session_lifecycle import release_owned_aedt_session
 from .transaction import execute_operation_plan
 from .workspace import (
     abort_workspace,
@@ -83,6 +84,8 @@ _OPERATIONS = {
     "project.create",
     "project.inspect",
     "runtime.snapshot",
+    "session.launch",
+    "session.release",
     "layout.export_image",
     "layout.build",
     "layout.solve",
@@ -133,6 +136,21 @@ class _AnsysAdapterBase:
                         },
                     }
                 )
+            if descriptor["id"] == "session.launch":
+                descriptor["resource_lifecycle"] = {
+                    "creates_when": "a new interactive AEDT desktop is launched",
+                    "kind": "aedt-desktop",
+                    "release_operation": "session.release",
+                }
+                descriptor["input_schema"] = {
+                    "required": ["project", "version"],
+                    "optional": ["design", "port", "validate", "redact_paths"],
+                }
+            if descriptor["id"] == "session.release":
+                descriptor["input_schema"] = {
+                    "required": ["resource_id", "release_handle"],
+                    "optional": ["timeout_seconds"],
+                }
             if descriptor["id"] == "layout.build":
                 descriptor["input_schema"] = {
                     "required": ["plan"],
@@ -279,6 +297,10 @@ class _AnsysAdapterBase:
                 redact_paths=redact,
             )
         if operation == "runtime.snapshot":
+            if request.payload.get("leave_open"):
+                raise ValueError(
+                    "runtime.snapshot cannot leave a new AEDT process open; use session.launch"
+                )
             if request.payload.get("live"):
                 return live_hfss3dlayout_probe(
                     project=self._value(request, "project", required=True),
@@ -302,6 +324,23 @@ class _AnsysAdapterBase:
                 docs_root=self._value(request, "docs_root"),
                 since_revision=request.payload.get("since_revision"),
                 redact_paths=redact,
+            )
+        if operation == "session.launch":
+            return live_hfss3dlayout_probe(
+                project=self._value(request, "project", required=True),
+                version=self._value(request, "version", required=True),
+                design=self._value(request, "design"),
+                port=int(request.payload.get("port", 0)),
+                new_desktop=True,
+                close_desktop=False,
+                validate=bool(request.payload.get("validate")),
+                redact_paths=redact,
+            )
+        if operation == "session.release":
+            return release_owned_aedt_session(
+                resource_id=str(self._value(request, "resource_id", required=True)),
+                release_handle=str(self._value(request, "release_handle", required=True)),
+                timeout_seconds=float(request.payload.get("timeout_seconds", 15.0)),
             )
         if operation == "layout.export_image":
             return export_layout_image(

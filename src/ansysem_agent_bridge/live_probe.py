@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import TargetIdentity, state_revision
+from .session_lifecycle import OwnedSessionStore
 
 
 def _safe_value(obj: Any, name: str, default: Any = None) -> Any:
@@ -172,6 +173,22 @@ def live_hfss3dlayout_probe(
                 "Use a separate solver-status or result artifact before claiming simulation "
                 "completion.",
             ]
+        if new_desktop and not close_desktop:
+            desktop_port = _safe_value(desktop, "port") if desktop is not None else None
+            if not desktop_port:
+                desktop_port = _safe_value(app, "port")
+            try:
+                payload["resource"] = OwnedSessionStore().register(
+                    pid=int(pid or 0),
+                    port=int(desktop_port or port or 0),
+                    version=version,
+                    project=str(project_path),
+                    design=str(_safe_value(app, "design_name") or design or "") or None,
+                )
+            except Exception:
+                with suppress(Exception):
+                    app.release_desktop(close_projects=True, close_desktop=True)
+                raise
         return payload
     finally:
         if app is not None and new_desktop and close_desktop:
