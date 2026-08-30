@@ -31,6 +31,23 @@ Bridge 把 AEDT 知识和原生 API 行为留在 EDA 主机。重复的本机或
 > 本项目仍是公开 Alpha，与 Ansys, Inc. 无隶属或背书关系。首次使用请
 > 从可丢弃工程开始，并先查看能力边界。
 
+## 现在可以完成什么
+
+- 从空白 HFSS 3D Layout 工程开始，创建材料、衬底叠层、走线、金属面、
+  端口和明确命名的频率 Setup。
+- 求解指定频点，核对每一个返回数值，导出 CSV，并在求解工程中留下可编辑的
+  原生 AEDT Report。
+- 修改已有工程前先检查完整 Bundle，再在受保护候选工作区里执行类型化版图或
+  金线修改，不把原工程当草稿。
+- 远程连接中断后从持久回执继续查看长任务，不重复执行修改或求解。
+
+下图来自公开合成双端口验收工程的真实 AEDT 应用窗口。工程从空白建立，
+求解五个明确频点，并在全新重开后通过验收。图中是工程里持久保存的 AEDT
+原生 Report，不是 Python 重绘。这个小工程证明的是完整执行路径，不是经过
+调优的射频参考设计。
+
+![公开双端口验收工程中的原生 AEDT S 参数 Report](docs/assets/readme/ansys-native-s-parameters.png)
+
 ## 从一个明确的 AEDT 安装开始
 
 在 AEDT 主机安装：
@@ -96,7 +113,7 @@ ansysem-agent --pretty --profile <profile-id> \
 迭代任务使用[候选工作区生命周期](docs/WORKSPACE_LIFECYCLE.md)。客户对象名、
 坐标和值只进入项目自己的计划，不进入公开 Bridge、Skill 或测试。
 
-## 用证据，而不是截图代替证明
+## 截图之外的证据
 
 维护中的真实主机验收覆盖 Linux 上的 AEDT 2026 R1，包括安装/Display
 身份、工程创建与检查、持久化任务、非覆盖工作区、全新重开、类型化断言
@@ -108,15 +125,9 @@ ansysem-agent --pretty --profile <profile-id> \
 创建原生 Report，并在全新重开后再次找到相同结果。见
 [脱敏完整工作流证据](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md)。
 
-![AEDT display4 公开验收中得到的五频点 S 参数实测结果](docs/assets/readme/ansys-real-s-parameters.png)
-
-同一验收工程还生成了下面的原生编辑器导出图。它能作为指定版图状态的
-可视证据；求解结论仍由 CSV 和全新重开后的 Report 支持，而不是由图片支持。
-
-![验收用合成工程的 HFSS 3D Layout 原生顶视图导出](docs/assets/hfss3dlayout-microstrip-real-v2.png)
-
-原生版图导出只能证明 AEDT 导出了指定实时编辑器状态。可见对象或截图
-不能证明电气正确、网格、收敛或求解完成；求解结论必须有独立求解证据。
+上面的原生 Report 是有用的可视证据，但单张截图仍不能证明电气正确、网格、
+收敛或求解完成。维护中的验收还会独立核对完整工程 Bundle、端口、Setup、
+五个有限频点、导出的 CSV、求解产物，以及全新重开后仍然存在的同一 Report。
 
 ## AEDT Context 插件
 

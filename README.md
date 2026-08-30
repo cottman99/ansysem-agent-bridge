@@ -41,6 +41,25 @@ and bondwire changes.
 > by Ansys, Inc. Begin with a disposable project and review the capability
 > boundary before using it on important work.
 
+## What you can finish today
+
+- Start from an empty HFSS 3D Layout project and create materials, substrate
+  stackup, traces, planes, ports, and a named frequency setup.
+- Run explicit frequencies, verify every returned numeric point, export CSV,
+  and leave an editable native AEDT report in the solved project.
+- Inspect an existing project before changing it, then apply typed layout or
+  bondwire changes on a protected candidate instead of the original bundle.
+- Continue an interrupted long job from its durable receipt without replaying
+  the mutation or solve.
+
+This is the native AEDT application window from the public synthetic two-port
+acceptance. The project was built from empty, solved at five explicit
+frequencies, and reopened before acceptance. The plot is the persisted AEDT
+Report—not a Python replot. This small fixture proves the maintained execution
+path; it is not presented as a tuned RF reference design.
+
+![Native AEDT S-parameter report from the solved public two-port acceptance](docs/assets/readme/ansys-native-s-parameters.png)
+
 ## Start with an explicit AEDT installation
 
 Install on the AEDT host:
@@ -112,7 +131,7 @@ For iterative work, use the [candidate workspace lifecycle](docs/WORKSPACE_LIFEC
 Task-specific object names and values stay in project-local plans; they do not
 enter the public Bridge, Skill, or tests.
 
-## Evidence, not screenshots as proof
+## Evidence beyond the screenshot
 
 A maintained real-host acceptance path covers AEDT 2026 R1 on Linux, including
 exact installation/display identity, project creation and inspection, durable
@@ -126,18 +145,11 @@ five-point sweep, exports exact CSV data, creates the native AEDT report, and
 finds the same results after a fresh reopen. See the
 [sanitized workflow evidence](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md).
 
-![Measured five-point S-parameter result from the public AEDT display4 acceptance](docs/assets/readme/ansys-real-s-parameters.png)
-
-The same accepted project also produced this native editor export. It is useful
-visual evidence of the named layout state, while the CSV and fresh-reopened
-report—not this image—support the solve claim.
-
-![Native HFSS 3D Layout top-view export from the accepted synthetic project](docs/assets/hfss3dlayout-microstrip-real-v2.png)
-
-A native layout export proves only that AEDT exported the named live editor
-state. A visible object or screenshot does **not** prove electrical correctness,
-mesh, convergence, or solver completion. Solver claims require separate solver
-evidence.
+The native report above is useful visual evidence, but a screenshot alone does
+**not** prove electrical correctness, mesh, convergence, or solver completion.
+The maintained acceptance additionally checks the exact project bundle,
+ports, setup, five finite frequency rows, exported CSV, solver artifacts, and
+the same report after a fresh reopen.
 
 ## The AEDT Context add-in
 
