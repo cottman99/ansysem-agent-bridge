@@ -73,6 +73,31 @@ def test_workspace_revision_is_forwarded_as_keyword_only(monkeypatch, operation,
     }
 
 
+@pytest.mark.parametrize(
+    ("operation", "function_name"),
+    [
+        ("layout.build", "execute_layout_build_plan"),
+        ("layout.solve", "execute_layout_solve_plan"),
+    ],
+)
+def test_layout_workflow_forwards_only_typed_plan(monkeypatch, operation, function_name):
+    observed = {}
+
+    def fake_execute(plan, *, redact_paths):
+        observed.update(plan=plan, redact_paths=redact_paths)
+        return {"status": "passed"}
+
+    monkeypatch.setattr(runtime_adapter, function_name, fake_execute)
+    request = SimpleNamespace(
+        operation=operation,
+        payload={"plan": {"schema_version": "synthetic/v1"}, "redact_paths": True},
+        target={},
+    )
+
+    assert runtime_adapter._AnsysAdapterBase()._dispatch(request) == {"status": "passed"}
+    assert observed == {"plan": {"schema_version": "synthetic/v1"}, "redact_paths": True}
+
+
 def test_service_submits_once_for_same_mutating_key(tmp_path, monkeypatch):
     pytest.importorskip("eda_bridge_runtime")
     spawned = []
@@ -323,7 +348,10 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     operations = capabilities["operations"]
     create = next(item for item in operations if item["id"] == "project.create")
     assert create["returns_context"] is True
-    assert {"docs.status", "docs.query", "docs.get"}.issubset({item["id"] for item in operations})
+    by_id = {item["id"]: item for item in operations}
+    assert {"docs.status", "docs.query", "docs.get", "layout.build", "layout.solve"}.issubset(by_id)
+    assert by_id["layout.build"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-build/v1")
+    assert by_id["layout.solve"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-solve/v1")
     with sqlite3.connect(service.jobs_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
 

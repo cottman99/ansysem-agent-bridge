@@ -73,6 +73,8 @@ and describe the task naturally.
 | “Inspect this project before changing anything.” | Verifies the complete project bundle and returns bounded object, port, setup, and revision facts. |
 | “Find the version-matched API for this operation.” | Queries private local documentation and returns focused evidence without launching or mutating AEDT. |
 | “Export a top view of this exact layout.” | Uses the native editor export and labels precisely what the image does and does not prove. |
+| “Start from a blank project: build this stackup and trace, place the two edge ports, and add a 1–5 GHz setup.” | Uses a typed material/stackup/geometry/port plan, protects the empty source, and requires fresh PyEDB and AEDT readback. |
+| “Run these five frequencies, export S11/S21 to CSV, and leave the S-parameter plot ready in AEDT.” | Creates an explicit named sweep, waits for the solve, checks every numeric point, exports CSV, creates a native report, and freshly reopens the solved project. |
 | “Apply these known layout or bondwire changes.” | Uses typed operations on a copy, then saves, closes, freshly reopens, and runs exact assertions. |
 | “Keep adjusting this candidate; do not create another customer version yet.” | Reuses one candidate workspace with checkpoints, rollback, and idempotent patches. |
 | “Promote the checked candidate to a new deliverable.” | Replays from the frozen source and commits one immutable output only after final fresh-session checks. |
@@ -111,6 +113,12 @@ exact installation/display identity, project creation and inspection, durable
 jobs, non-overwriting workspaces, fresh reopen, typed assertions, and artifact
 hashes. See the
 [sanitized AEDT 2026 R1 acceptance](docs/VALIDATION_AEDT_2026R1_LINUX.md).
+
+The maintained build-to-report acceptance starts from an empty HFSS 3D Layout
+project, creates a synthetic three-layer two-port layout, solves an explicit
+five-point sweep, exports exact CSV data, creates the native AEDT report, and
+finds the same results after a fresh reopen. See the
+[sanitized workflow evidence](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md).
 
 A native layout export proves only that AEDT exported the named live editor
 state. A visible object or screenshot does **not** prove electrical correctness,
@@ -169,3 +177,4 @@ behavior remain identical.
 - [Release contract](docs/RELEASE_CONTRACT.md)
 - [Security policy](SECURITY.md)
 - [Sanitized Linux acceptance](docs/VALIDATION_AEDT_2026R1_LINUX.md)
+- [Sanitized HFSS 3D Layout build-to-report acceptance](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md)

@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cottman99/ansysem-agent-bridge/schemas/ansysem-hfss3dlayout-build-v1.schema.json",
+  "title": "AnsysEM HFSS 3D Layout Build Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_id",
+    "source_project",
+    "output_project",
+    "version",
+    "design",
+    "materials",
+    "layers",
+    "traces",
+    "ports",
+    "setup"
+  ],
+  "properties": {
+    "schema_version": {"const": "ansysem.hfss3dlayout-build/v1"},
+    "operation_id": {"$ref": "#/$defs/identifier"},
+    "source_project": {"type": "string", "minLength": 1},
+    "output_project": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "design": {"$ref": "#/$defs/identifier"},
+    "source_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "materials": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {"oneOf": [{"$ref": "#/$defs/conductor"}, {"$ref": "#/$defs/dielectric"}]}
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/layer"}
+    },
+    "rectangles": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/rectangle"}
+    },
+    "traces": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/trace"}
+    },
+    "ports": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/port"}
+    },
+    "setup": {"$ref": "#/$defs/setup"}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_ -]{0,127}$"
+    },
+    "length": {
+      "type": "string",
+      "pattern": "^[+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?(?:um|mm|cm|m|mil)$"
+    },
+    "coordinate": {
+      "type": "string",
+      "pattern": "^[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?(?:um|mm|cm|m|mil)$"
+    },
+    "frequency": {
+      "type": "string",
+      "pattern": "^[+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?(?:Hz|kHz|MHz|GHz|THz)$"
+    },
+    "point": {
+      "type": "array",
+      "prefixItems": [{"$ref": "#/$defs/coordinate"}, {"$ref": "#/$defs/coordinate"}],
+      "items": false
+    },
+    "conductor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "conductivity"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "kind": {"const": "conductor"},
+        "conductivity": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "dielectric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "permittivity", "loss_tangent"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "kind": {"const": "dielectric"},
+        "permittivity": {"type": "number", "exclusiveMinimum": 0},
+        "loss_tangent": {"type": "number", "minimum": 0}
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "material", "thickness"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "kind": {"enum": ["signal", "dielectric"]},
+        "material": {"$ref": "#/$defs/identifier"},
+        "thickness": {"$ref": "#/$defs/length"}
+      }
+    },
+    "rectangle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "layer", "net", "lower_left", "upper_right"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "layer": {"$ref": "#/$defs/identifier"},
+        "net": {"$ref": "#/$defs/identifier"},
+        "lower_left": {"$ref": "#/$defs/point"},
+        "upper_right": {"$ref": "#/$defs/point"}
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "layer", "net", "width", "path"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "layer": {"$ref": "#/$defs/identifier"},
+        "net": {"$ref": "#/$defs/identifier"},
+        "width": {"$ref": "#/$defs/length"},
+        "path": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/point"}
+        }
+      }
+    },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "trace", "position", "type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "trace": {"$ref": "#/$defs/identifier"},
+        "position": {"enum": ["Start", "End"]},
+        "type": {"enum": ["Wave", "Gap"]}
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "start", "stop", "step"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "start": {"$ref": "#/$defs/frequency"},
+        "stop": {"$ref": "#/$defs/frequency"},
+        "step": {"$ref": "#/$defs/frequency"}
+      }
+    }
+  }
+}
