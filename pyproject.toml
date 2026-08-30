@@ -22,7 +22,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["eda-bridge-runtime>=0.1.0a33,<0.2"]
+dependencies = ["eda-bridge-runtime>=0.1.0a34,<0.2"]
 
 [project.optional-dependencies]
 test = ["jsonschema>=4.23,<5", "pytest>=8,<10", "ruff>=0.12,<1"]
