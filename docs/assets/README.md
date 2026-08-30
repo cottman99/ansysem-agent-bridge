@@ -11,6 +11,12 @@ it is not a Python replot. It contains no customer design or private path. Its
 evidence boundary is documented in
 `VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md`.
 
+`readme/ansys-native-layout-stackup.png` is a real AEDT application-window
+capture from a separate post-acceptance replay of the same public typed build
+contract. It shows the project and design tree, layout, edge ports, and the
+TOP / SUB / GND stackup. The replay was kept outside workflow timing and did
+not run a solve; it contains no customer model or private path.
+
 The product overview depicts the maintained stackup/geometry/port to solve and
 native-report path. It is not itself proof that a specific AEDT operation or
 solve ran; maintained capability claims and acceptance evidence remain in the

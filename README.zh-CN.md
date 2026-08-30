@@ -12,41 +12,33 @@
 
 ![射频工程师从衬底叠层和端口出发，经过电磁求解得到 S 参数结果](docs/assets/readme/ansysem-engineer-workflow-v3.png)
 
-AnsysEM Agent Bridge 是一个非官方、本地优先的 Ansys Electronics Desktop
-桥接工具。它帮助 Codex、Pi Agent 等通用 Agent 精确识别项目与设计，
-检查 HFSS 3D Layout 实时状态，在非覆盖副本上进行受控修改，并返回
-带证据的产物。
+## 一段对话完成 HFSS 3D Layout 建模到报告
 
-Bridge 把 AEDT 知识和原生 API 行为留在 EDA 主机。重复的本机或 SSH
-工作统一经过
+> “从空白工程开始，建立这个叠层和走线，放置两个边缘端口，求解1–5 GHz，
+> 导出 S11/S21，并把结果图留在 AEDT 里。”
+
+| 在 AEDT 中建立并重开的模型 | 留在工程中的原生结果 |
+| --- | --- |
+| ![真实 AEDT 窗口中的工程树、TOP SUB GND 叠层、走线和边缘端口](docs/assets/readme/ansys-native-layout-stackup.png) | ![公开双端口验收工程中的原生 AEDT S 参数 Report](docs/assets/readme/ansys-native-s-parameters.png) |
+
+公开的 AEDT 2026 R1 验收完整执行了这条路径：
+
+- 创建空白 HFSS 3D Layout 工程；
+- 添加两种材料和 GND / SUB / TOP 叠层；
+- 创建地平面、信号走线、P1 / P2 和 Setup1；
+- 求解1–5 GHz的5个明确频点；
+- 将有限 S 参数数据导出为 CSV，并持久保存原生 Report；
+- 保存关闭，并在全新重开后通过验收。
+
+两张图都是真实 AEDT 应用窗口。模型视图是在验收结束后，使用同一公开类型化
+构建合同独立回放并截图，不计入测试耗时；结果图来自已经求解并持久保存的原生
+AEDT Report。
+
+AnsysEM Agent Bridge 把 Codex 或 Pi Agent 连接到一个明确的 AEDT 工程和
+Design。它能检查已有工程，建立维护中的叠层/几何/端口，求解明确扫频，并在
+受保护候选版本上执行已知版图或金线修改。本机与 SSH 工作都经过
 [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime)，
-因此长任务、重试、耗时和审计只有一条路径。
-
-当前维护中的公开路径已经能够从空白 HFSS 3D Layout 工程开始，创建材料
-与叠层、绘制走线和金属面、放置边缘端口、创建频率 Setup、求解明确频点、
-导出数值，并留下原生 AEDT Report。针对已知版图和金线的修改，也提供
-保护源工程的类型化路径。
-
-> [!IMPORTANT]
-> 本项目仍是公开 Alpha，与 Ansys, Inc. 无隶属或背书关系。首次使用请
-> 从可丢弃工程开始，并先查看能力边界。
-
-## 现在可以完成什么
-
-- 从空白 HFSS 3D Layout 工程开始，创建材料、衬底叠层、走线、金属面、
-  端口和明确命名的频率 Setup。
-- 求解指定频点，核对每一个返回数值，导出 CSV，并在求解工程中留下可编辑的
-  原生 AEDT Report。
-- 修改已有工程前先检查完整 Bundle，再在受保护候选工作区里执行类型化版图或
-  金线修改，不把原工程当草稿。
-- 远程连接中断后从持久回执继续查看长任务，不重复执行修改或求解。
-
-下图来自公开合成双端口验收工程的真实 AEDT 应用窗口。工程从空白建立，
-求解五个明确频点，并在全新重开后通过验收。图中是工程里持久保存的 AEDT
-原生 Report，不是 Python 重绘。这个小工程证明的是完整执行路径，不是经过
-调优的射频参考设计。
-
-![公开双端口验收工程中的原生 AEDT S 参数 Report](docs/assets/readme/ansys-native-s-parameters.png)
+因此长任务、重试、耗时和审计使用同一条路径。
 
 ## 从一个明确的 AEDT 安装开始
 
@@ -167,6 +159,12 @@ AEDT 同机时也注册本机连接并经过 Runtime，从而保持相同的重�
 - 不强杀 AEDT，不静默丢弃修改；
 - 不把文档、可见对象或图片导出当作求解证据；
 - 公开仓库不包含客户工程、私有路径或厂商文档。
+
+## 下一步
+
+- 更丰富的衬底、叠层、几何、端口和参数化模型类型；
+- 原生场、网格、收敛、表格以及多视角 3D 结果流程；
+- 更完整的求解设置、扫频、提取、优化和报告任务。
 
 ## 更多信息
 

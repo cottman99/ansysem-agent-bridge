@@ -59,6 +59,24 @@ replace object, port, setup, sweep, or solution assertions.
 | Layout solve | `run_9126c3f97fe1442ca4872bd89cca2be3` |
 | Image export | `run_5c241f9c087c4272a31a96c12fec2c85` |
 
+## README model-window replay
+
+The informative README model-window capture was made in a separate
+post-acceptance replay of the same typed public build contract. This kept
+release preparation outside the workflow timing above and avoided treating a
+screenshot task as engineering execution time. The replay did not solve:
+
+| Operation | Runtime run ID |
+| --- | --- |
+| Project create | `run_aac1d0d6f3a740969101ea4f0f0e883c` |
+| Layout build | `run_791c2ee3ac8a4e32af2a8ee67bacf1f0` |
+| Open owned AEDT window | `run_d24715739e8647bb9fc4b5dd1e7a4299` |
+
+The source was preserved, the fresh-reopen build assertions passed, and the
+window was framed to show the project/design tree, layout, edge ports, and
+TOP / SUB / GND stackup. The resulting asset is
+[`ansys-native-layout-stackup.png`](assets/readme/ansys-native-layout-stackup.png).
+
 ## Boundaries discovered and fixed
 
 - PyEDB 0.82 rejected the attempted `Mitered` trace-corner token; the typed

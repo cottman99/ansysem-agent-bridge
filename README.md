@@ -19,46 +19,34 @@
 
 ![An RF engineer goes from substrate stackup and ports through an EM solve to an S-parameter result](docs/assets/readme/ansysem-engineer-workflow-v3.png)
 
-AnsysEM Agent Bridge is an unofficial, local-first bridge for Ansys Electronics
-Desktop. It gives general-purpose Agents such as Codex and Pi Agent a stable
-way to identify the exact project and design, inspect live HFSS 3D Layout state,
-make bounded changes on non-overwriting copies, and return evidence-bearing
-artifacts.
+## Finish an HFSS 3D Layout build-to-report task
 
-The Bridge keeps AEDT knowledge and native API behavior on the EDA host.
-Repeated local or SSH work passes through
+> “Start from an empty project, build this stackup and trace, place two edge
+> ports, solve 1–5 GHz, export S11/S21, and leave the plot ready in AEDT.”
+
+| Model built and reopened in AEDT | Native result left in the project |
+| --- | --- |
+| ![Native AEDT layout window showing the project, TOP SUB GND stackup, trace and edge ports](docs/assets/readme/ansys-native-layout-stackup.png) | ![Native AEDT S-parameter report from the solved public two-port acceptance](docs/assets/readme/ansys-native-s-parameters.png) |
+
+The public AEDT 2026 R1 acceptance completed the full path:
+
+- created an empty HFSS 3D Layout project;
+- added two materials and the GND / SUB / TOP stackup;
+- created a ground plane, signal trace, P1 / P2, and Setup1;
+- solved five explicit frequencies from 1 to 5 GHz;
+- exported finite S-parameter data to CSV and persisted the native Report;
+- closed and freshly reopened the project before acceptance.
+
+Both captures are native AEDT application windows. The model view was replayed
+after acceptance from the same public typed build contract, outside the timed
+test; the result plot is the persisted AEDT Report from the solved acceptance.
+
+AnsysEM Agent Bridge connects Codex or Pi Agent to one exact AEDT project and
+design. It can inspect existing work, build the maintained stackup/geometry/port
+families, solve explicit sweeps, and apply known layout or bondwire changes on
+protected candidates. Local and SSH work use
 [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime), so long
-jobs, retries, timing, and audit follow one path.
-
-Today, the maintained public path can start from an empty HFSS 3D Layout
-project, create materials and stackup layers, draw traces and planes, place edge
-ports, create a frequency setup, solve explicit points, export numeric data,
-and leave a native AEDT report. Typed copy-safe updates also cover known layout
-and bondwire changes.
-
-> [!IMPORTANT]
-> This project is public alpha software and is not affiliated with or endorsed
-> by Ansys, Inc. Begin with a disposable project and review the capability
-> boundary before using it on important work.
-
-## What you can finish today
-
-- Start from an empty HFSS 3D Layout project and create materials, substrate
-  stackup, traces, planes, ports, and a named frequency setup.
-- Run explicit frequencies, verify every returned numeric point, export CSV,
-  and leave an editable native AEDT report in the solved project.
-- Inspect an existing project before changing it, then apply typed layout or
-  bondwire changes on a protected candidate instead of the original bundle.
-- Continue an interrupted long job from its durable receipt without replaying
-  the mutation or solve.
-
-This is the native AEDT application window from the public synthetic two-port
-acceptance. The project was built from empty, solved at five explicit
-frequencies, and reopened before acceptance. The plot is the persisted AEDT
-Report—not a Python replot. This small fixture proves the maintained execution
-path; it is not presented as a tuned RF reference design.
-
-![Native AEDT S-parameter report from the solved public two-port acceptance](docs/assets/readme/ansys-native-s-parameters.png)
+jobs, retries, timing, and audit follow the same path.
 
 ## Start with an explicit AEDT installation
 
@@ -193,6 +181,12 @@ behavior remain identical.
 - no force-kill or silent discard of modified work;
 - no claim that documentation, visibility, or image export proves a solve;
 - no customer projects, private paths, or vendor documentation in this public repository.
+
+## Next
+
+- richer substrate, stackup, geometry, port, and parameterized-model families;
+- native field, mesh, convergence, table, and multi-view 3D result workflows;
+- broader solver setup, sweep, extraction, optimization, and report journeys.
 
 ## More information
 
