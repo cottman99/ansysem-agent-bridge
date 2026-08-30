@@ -2,7 +2,11 @@
 
 - Treat this as a public repository. Never add customer data, credentials,
   private hostnames, personal paths, proprietary models, or vendor manuals.
-- Keep version-specific AEDT behavior in bounded adapters and typed operations.
+- Keep version-specific AEDT behavior in official-runtime adapters. Follow
+  `docs/ARCHITECTURE.md` and `docs/OPERATION_CLASSIFICATION.md`: typed operations
+  are certified workflows, not a second AEDT API. Prefer governed official
+  PyAEDT/PyEDB/native execution and reusable transaction/validation mechanics
+  over adding one wrapper per EDA feature.
 - Protect source projects and require persisted state or fresh observation
   before claiming a successful change or solve.
 - Do not publish or create releases without explicit owner authorization.

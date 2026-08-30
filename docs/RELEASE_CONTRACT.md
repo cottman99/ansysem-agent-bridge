@@ -12,6 +12,11 @@ inside one candidate workspace and explicitly promote one clean-replayed output
 on the AEDT host. Candidate promotion persists an exact interruption-recovery
 intent before EDA starts. The documentation Skill is optional.
 
+The typed catalog is a set of infrastructure operations and certified
+workflows, not a second AEDT API. Broader capability is expected to use governed
+official PyAEDT/PyEDB/native execution in an exact Context and reuse the common
+workspace, transaction, and validation lifecycle.
+
 ## Public boundary
 
 The release contains no customer project, vendor documentation, generated
@@ -33,8 +38,9 @@ synthetic and independently redistributable.
 
 ## Deliberately unclaimed
 
-The alpha does not claim complete HFSS, Maxwell, Q3D, SIwave, Icepak, Circuit,
+The alpha does not yet claim a governed general official-code lane or complete
+HFSS, Maxwell, Q3D, SIwave, Icepak, Circuit,
 Twin Builder, arbitrary geometry or port families, meshing strategies, solver
 features outside the maintained explicit-sweep contract, packaging, publishing,
 release creation, or general GUI automation. HFSS 3D Layout build, solve, and
-mutation transactions are limited to their versioned typed plan schemas.
+mutation transactions are limited to their versioned certified workflow schemas.

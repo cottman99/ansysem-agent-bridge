@@ -162,13 +162,15 @@ AEDT 同机时也注册本机连接并经过 Runtime，从而保持相同的重�
 
 ## 下一步
 
-- 更丰富的衬底、叠层、几何、端口和参数化模型类型；
-- 原生场、网格、收敛、表格以及多视角 3D 结果流程；
-- 更完整的求解设置、扫频、提取、优化和报告任务。
+- 受治理地调用版本匹配的官方 PyAEDT、PyEDB 和原生 API，避免每增加
+  一种几何、端口、求解或报告功能就新增一个 Bridge wrapper；
+- 通过这条通用路径完成更丰富的衬底、参数化模型、场、网格、收敛、
+  提取、优化和报告任务，并只把高价值、高复用流程提升为认证 workflow。
 
 ## 更多信息
 
 - [能力与证据矩阵](docs/CAPABILITY_MATRIX.md)
+- [Operation 分类与迁移判断](docs/OPERATION_CLASSIFICATION.md)
 - [候选工作区生命周期](docs/WORKSPACE_LIFECYCLE.md)
 - [执行上下文契约](docs/EXECUTION_CONTEXT_CONTRACT.md)
 - [架构](docs/ARCHITECTURE.md)

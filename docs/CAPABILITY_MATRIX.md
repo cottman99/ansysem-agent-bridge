@@ -1,5 +1,8 @@
 # Capability, mechanism, and evidence matrix
 
+Operation roles and migration decisions are recorded separately in
+[`OPERATION_CLASSIFICATION.md`](OPERATION_CLASSIFICATION.md).
+
 | User task | Bridge mechanism | Alpha status | Boundary |
 | --- | --- | --- | --- |
 | Discover configured AEDT installations | Environment and explicit local configuration | Implemented | Never silently chooses among multiple installations |
@@ -16,7 +19,7 @@
 | Apply a typed bondwire transaction | Source fingerprints plus PyEDB mutation, AEDT save/close, fresh AEDT and PyEDB reopens, and geometric assertions | Validated on AEDT 2026.1.0 / PyAEDT 1.4.0 / PyEDB 0.82.0 on Linux | Structured APD profiles and exact-name bondwire changes only; no raw APD block, arbitrary call, solve, or packaging |
 | Iterate without creating a version per attempt | One candidate workspace, optimistic revision, idempotent typed patch journal, internal checkpoints, rollback/abort, durable promotion intent, and explicit clean-replay promotion | Validated on AEDT 2026.1.0 / PyAEDT 1.4.0 / PyEDB 0.82.0 on Linux; interruption paths are synthetic-tested | Candidate checkpoints are not delivery revisions; the selected adapter still limits available mutations |
 | Query local version-matched documentation | Configured private corpus and bounded source references | Implemented | Documentation is not redistributed or treated as runtime proof |
-| Create or repair arbitrary geometry, port families, meshing, or solver features outside a versioned plan | Not claimed | Not claimed | The public surface stays typed and bounded; unsupported families require a reviewed adapter extension rather than raw Python |
+| Reach documented geometry, port, meshing, solver, or reporting APIs outside a certified workflow | Governed official-code lane planned; not yet implemented | Not claimed | Do not infer absence from the workflow catalog and do not add one Bridge wrapper per vendor method |
 | General GUI automation | Not claimed | Not claimed | No blind coordinate or screenshot-only success path |
 
 Unit tests protect public contracts and failure behavior. Real AEDT validation

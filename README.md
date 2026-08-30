@@ -184,13 +184,17 @@ behavior remain identical.
 
 ## Next
 
-- richer substrate, stackup, geometry, port, and parameterized-model families;
-- native field, mesh, convergence, table, and multi-view 3D result workflows;
-- broader solver setup, sweep, extraction, optimization, and report journeys.
+- governed access to version-matched official PyAEDT/PyEDB/native APIs so new
+  documented uses do not require one Bridge wrapper per geometry, port, solver,
+  or report feature;
+- richer substrate, parameterized-model, field, mesh, convergence, extraction,
+  optimization, and reporting journeys selectively promoted as certified
+  workflows.
 
 ## More information
 
 - [Capability and evidence matrix](docs/CAPABILITY_MATRIX.md)
+- [Operation classification](docs/OPERATION_CLASSIFICATION.md)
 - [Candidate workspace lifecycle](docs/WORKSPACE_LIFECYCLE.md)
 - [Execution context contract](docs/EXECUTION_CONTEXT_CONTRACT.md)
 - [Architecture](docs/ARCHITECTURE.md)

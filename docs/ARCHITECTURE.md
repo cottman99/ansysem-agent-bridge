@@ -3,8 +3,9 @@
 ## Product boundary
 
 AnsysEM Agent Bridge is a local control plane between a general-purpose Agent
-and one explicitly selected Ansys Electronics Desktop runtime. It converts an
-intent into a bounded semantic operation, selects a verified adapter, and
+and one explicitly selected Ansys Electronics Desktop runtime. It binds intent
+to an exact Context, selects the version-matched official runtime or a
+certified workflow, and
 returns machine-readable identity, readback, validation, artifacts, warnings,
 and safe next actions.
 
@@ -36,9 +37,9 @@ intent gate -> target resolver -> capability registry -> semantic operation
 2. **Capability before probing.** `declared`, `compatible`, `available`,
    `healthy`, and `authorized` are independent facts. One missing search hit or
    failed call never proves that no API exists.
-3. **Semantic operations before raw execution.** Public commands express a
-   stable task such as `project.inspect` or `layout.export_image`; adapters own
-   release-specific signatures and object-ID conversions.
+3. **Official API reach before wrapper growth.** Use version-matched docs and a
+   governed PyAEDT/PyEDB/native batch for new EDA functionality. Stable semantic
+   operations are certified workflows or infrastructure, not a replacement API.
 4. **Readback before success.** A returned success boolean is insufficient.
    Results include the selected identity and operation-specific state or an
    artifact hash.
@@ -113,8 +114,9 @@ For iterative work, the lifecycle is:
 
 The alpha implements the read-only/static gates, live HFSS 3D Layout snapshot,
 native layout image export, native property/gap-port and PyEDB bondwire
-transaction adapters, plus the candidate workspace lifecycle. Arbitrary geometry, stackup,
-setup, solver, command, module, or Python execution remains unclaimed.
+transaction adapters, plus the candidate workspace lifecycle. A governed
+general official-code lane is not yet implemented; existing raw Python absence
+must not be worked around by indefinitely expanding scene-specific wrappers.
 
 ## Failure model
 
@@ -127,9 +129,15 @@ setup, solver, command, module, or Python execution remains unclaimed.
 Failures carry a stable reason, the evidence already obtained, and safe next
 actions. Adapter exceptions must not erase a valid target snapshot.
 
-## Extension rule
+## Capability growth and workflow promotion
 
-A new capability is promoted only when it has:
+The shared [EDA capability model](https://github.com/cottman99/eda-bridge-runtime/blob/main/docs/CAPABILITY_MODEL.md)
+defines five distinct coverage dimensions and four operation classes. New
+official API uses normally belong in governed native execution. The reusable
+abstractions are Context, batch, staging, fingerprint, idempotency, pre/post
+assertions, fresh reopen, artifact validation, and promotion.
+
+A high-frequency recipe is promoted to a certified workflow only when it has:
 
 - a semantic name and versioned input/output contract;
 - explicit target, version, lane, safety, and mutation metadata;
@@ -139,5 +147,6 @@ A new capability is promoted only when it has:
 - redaction, timeout, retry/idempotency, and owned-session cleanup behavior;
 - synthetic CI coverage plus a sanitized real-runtime acceptance record.
 
-This promotion rule generalizes beyond any single API failure and keeps the
-public surface smaller than the vendor API while still making it dependable.
+One missing geometry primitive, plot kind, or solver option does not justify a
+new workflow. This rule keeps the public workflow surface small while the
+official API remains broadly reachable through the governed lane.
