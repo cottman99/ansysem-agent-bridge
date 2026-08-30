@@ -8,9 +8,9 @@
   <img src="docs/assets/readme/logo.png" width="150" alt="AnsysEM Agent Bridge logo">
 </p>
 
-<p align="center"><strong>让 Agent 检查和修改你真正指定的 AEDT 设计，而不是把原工程当作草稿。</strong></p>
+<p align="center"><strong>从叠层、几何和端口到求解后的原生 Report，同时不把原工程当作草稿。</strong></p>
 
-![受保护的电磁封装在独立副本上修改，并经过全新重开验收](docs/assets/readme/ansysem-user-value-v2.png)
+![射频工程师从衬底叠层和端口出发，经过电磁求解得到 S 参数结果](docs/assets/readme/ansysem-engineer-workflow-v3.png)
 
 AnsysEM Agent Bridge 是一个非官方、本地优先的 Ansys Electronics Desktop
 桥接工具。它帮助 Codex、Pi Agent 等通用 Agent 精确识别项目与设计，
@@ -21,6 +21,11 @@ Bridge 把 AEDT 知识和原生 API 行为留在 EDA 主机。重复的本机或
 工作统一经过
 [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime)，
 因此长任务、重试、耗时和审计只有一条路径。
+
+当前维护中的公开路径已经能够从空白 HFSS 3D Layout 工程开始，创建材料
+与叠层、绘制走线和金属面、放置边缘端口、创建频率 Setup、求解明确频点、
+导出数值，并留下原生 AEDT Report。针对已知版图和金线的修改，也提供
+保护源工程的类型化路径。
 
 > [!IMPORTANT]
 > 本项目仍是公开 Alpha，与 Ansys, Inc. 无隶属或背书关系。首次使用请
@@ -102,6 +107,13 @@ ansysem-agent --pretty --profile <profile-id> \
 三层双端口版图，执行明确的五频点扫频，导出精确 CSV 数据，在 AEDT 中
 创建原生 Report，并在全新重开后再次找到相同结果。见
 [脱敏完整工作流证据](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md)。
+
+![AEDT display4 公开验收中得到的五频点 S 参数实测结果](docs/assets/readme/ansys-real-s-parameters.png)
+
+同一验收工程还生成了下面的原生编辑器导出图。它能作为指定版图状态的
+可视证据；求解结论仍由 CSV 和全新重开后的 Report 支持，而不是由图片支持。
+
+![验收用合成工程的 HFSS 3D Layout 原生顶视图导出](docs/assets/hfss3dlayout-microstrip-real-v2.png)
 
 原生版图导出只能证明 AEDT 导出了指定实时编辑器状态。可见对象或截图
 不能证明电气正确、网格、收敛或求解完成；求解结论必须有独立求解证据。

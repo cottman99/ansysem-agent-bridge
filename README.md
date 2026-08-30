@@ -8,7 +8,7 @@
   <img src="docs/assets/readme/logo.png" width="150" alt="AnsysEM Agent Bridge logo">
 </p>
 
-<p align="center"><strong>Let your Agent inspect and change the intended AEDT design without using the original project as a scratchpad.</strong></p>
+<p align="center"><strong>From stackup, geometry, and ports to a solved native report—without using the original project as a scratchpad.</strong></p>
 
 <p align="center">
   <a href="https://pypi.org/project/ansysem-agent-bridge/"><img alt="PyPI" src="https://img.shields.io/pypi/v/ansysem-agent-bridge"></a>
@@ -17,7 +17,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/cottman99/ansysem-agent-bridge"></a>
 </p>
 
-![A protected electromagnetic package is edited on a separate copy and freshly reopened for verification](docs/assets/readme/ansysem-user-value-v2.png)
+![An RF engineer goes from substrate stackup and ports through an EM solve to an S-parameter result](docs/assets/readme/ansysem-engineer-workflow-v3.png)
 
 AnsysEM Agent Bridge is an unofficial, local-first bridge for Ansys Electronics
 Desktop. It gives general-purpose Agents such as Codex and Pi Agent a stable
@@ -29,6 +29,12 @@ The Bridge keeps AEDT knowledge and native API behavior on the EDA host.
 Repeated local or SSH work passes through
 [EDA Bridge Runtime](https://github.com/cottman99/eda-bridge-runtime), so long
 jobs, retries, timing, and audit follow one path.
+
+Today, the maintained public path can start from an empty HFSS 3D Layout
+project, create materials and stackup layers, draw traces and planes, place edge
+ports, create a frequency setup, solve explicit points, export numeric data,
+and leave a native AEDT report. Typed copy-safe updates also cover known layout
+and bondwire changes.
 
 > [!IMPORTANT]
 > This project is public alpha software and is not affiliated with or endorsed
@@ -119,6 +125,14 @@ project, creates a synthetic three-layer two-port layout, solves an explicit
 five-point sweep, exports exact CSV data, creates the native AEDT report, and
 finds the same results after a fresh reopen. See the
 [sanitized workflow evidence](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md).
+
+![Measured five-point S-parameter result from the public AEDT display4 acceptance](docs/assets/readme/ansys-real-s-parameters.png)
+
+The same accepted project also produced this native editor export. It is useful
+visual evidence of the named layout state, while the CSV and fresh-reopened
+report—not this image—support the solve claim.
+
+![Native HFSS 3D Layout top-view export from the accepted synthetic project](docs/assets/hfss3dlayout-microstrip-real-v2.png)
 
 A native layout export proves only that AEDT exported the named live editor
 state. A visible object or screenshot does **not** prove electrical correctness,
