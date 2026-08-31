@@ -9,7 +9,7 @@ identity, capability state, semantic operations, artifacts, and readback. It
 does not own Agent planning, project workflow policy, engineering memory, or
 knowledge promotion.
 
-The Bridge publishes six versioned contracts:
+The Bridge publishes seven versioned contracts:
 
 - `ansysem-target-identity/v1`
 - `ansysem-runtime-snapshot/v1`
@@ -17,6 +17,7 @@ The Bridge publishes six versioned contracts:
 - `ansysem-operation-result/v1`
 - `ansysem-operation-plan/v1`
 - `ansysem-workspace-patch/v1`
+- `ansysem-continuation-context-record/v1` (private host record)
 
 ## Runtime profile rule
 
@@ -57,6 +58,24 @@ Every live claim preserves the host, AEDT installation and version, display,
 process or session, `.aedt` plus `.aedb` project bundle, project, design,
 editor, and execution lane. A caller must not infer a missing identity from the
 foreground window or silently switch a running session.
+
+## Continuation rule
+
+A complete project capture records its exact host path, bundle SHA-256, cheap
+content-state revision, profile, version, design, and Display inside the private
+AEDT-host registry. Its `EDA_CONTEXT` remains an opaque locator and does not
+contain the private path or either fingerprint. Legacy contexts remain usable by
+operations that do not require content materialization; governed native
+continuation requires a newly captured content-bound record.
+
+For `native.batch`, the trusted Bridge may materialize the fixed runtime,
+resource kind, bound version/design selectors, the one source read path, and the
+mutation source fingerprint. Any explicit conflicting value is rejected. The
+Bridge never infers effect, write paths, artifacts, transaction strategy,
+fresh-reopen or promotion policy, engineering validation, limits, purpose, or
+idempotency. Observe returns the unchanged opaque context; a passing staged
+mutation returns a new output-bound `continuation_context`. The accompanying
+`continuation_state` contains no path or fingerprint.
 
 ## Capability rule
 

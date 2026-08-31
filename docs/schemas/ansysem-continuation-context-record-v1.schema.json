@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cottman99/ansysem-agent-bridge/schemas/ansysem-continuation-context-record-v1.schema.json",
+  "title": "Private AnsysEM Continuation Context Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "context_id", "generation", "captured_at", "target"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "context_id": {"type": "string", "pattern": "^ctx_[A-Za-z0-9_]{1,64}$"},
+    "generation": {"type": "integer", "minimum": 1},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "project_name", "design"],
+      "properties": {
+        "connection_id": {"type": ["string", "null"]},
+        "profile": {"type": ["string", "null"]},
+        "project": {"type": "string", "minLength": 1},
+        "project_name": {"type": "string", "minLength": 1},
+        "design": {"type": "string", "minLength": 1},
+        "version": {"type": ["string", "null"]},
+        "port": {"type": ["integer", "null"]},
+        "process_id": {"type": ["integer", "null"]},
+        "display": {"type": ["string", "null"]}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "resource_kind", "bundle_sha256", "state_revision", "project_name", "design", "version", "profile", "display"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "resource_kind": {"const": "aedt-project"},
+        "bundle_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "state_revision": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "project_name": {"type": "string", "minLength": 1},
+        "design": {"type": "string", "minLength": 1},
+        "version": {"type": ["string", "null"]},
+        "profile": {"type": ["string", "null"]},
+        "display": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

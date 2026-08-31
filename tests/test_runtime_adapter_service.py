@@ -130,6 +130,48 @@ def test_layout_workflow_forwards_only_typed_plan(monkeypatch, operation, functi
     assert observed == {"plan": plan, "redact_paths": True}
 
 
+def test_context_native_dispatch_returns_reusable_or_rotated_content_bound_context(monkeypatch):
+    plan = {
+        "effect": "observe",
+        "scope": {
+            "read_paths": ["synthetic.aedt"],
+            "write_paths": [],
+            "selectors": {"version": "2026.1", "design": "Layout1"},
+        },
+    }
+    monkeypatch.setattr(
+        runtime_adapter,
+        "execute_native_batch",
+        lambda _plan, *, redact_paths: {"status": "passed", "source_preserved": True},
+    )
+    monkeypatch.setattr(runtime_adapter, "store_context", lambda *_args, **_kwargs: "opaque-next")
+    request = SimpleNamespace(
+        operation="native.batch",
+        payload={"plan": plan, "redact_paths": True},
+        target={
+            "context_id": "ctx_synthetic",
+            "_continuation_context": "opaque-next",
+            "profile": "synthetic",
+            "display": ":4.0",
+        },
+    )
+
+    result = runtime_adapter._AnsysAdapterBase()._dispatch(request)
+
+    assert result["eda_context"] == "opaque-next"
+    assert result["continuation_context"] == "opaque-next"
+    assert result["continuation_state"] == {
+        "content_bound": True,
+        "target_kind": "design",
+    }
+
+    plan["effect"] = "staged_mutation"
+    plan["scope"]["write_paths"] = ["output.aedt"]
+    monkeypatch.setattr(runtime_adapter, "store_context", lambda *_args, **_kwargs: "opaque-output")
+    mutated = runtime_adapter._AnsysAdapterBase()._dispatch(request)
+    assert mutated["continuation_context"] == "opaque-output"
+
+
 def test_service_submits_once_for_same_mutating_key(tmp_path, monkeypatch):
     pytest.importorskip("eda_bridge_runtime")
     spawned = []
@@ -296,6 +338,140 @@ def test_service_resolves_secret_free_context_on_eda_host(tmp_path, monkeypatch)
     assert "context" not in stored.target
 
 
+def test_service_materializes_context_bound_native_identity_before_job(tmp_path, monkeypatch):
+    from eda_bridge_runtime import EDAContext
+
+    from ansysem_agent_bridge import aedt_context_tool
+
+    project = tmp_path / "synthetic.aedt"
+    project.write_text("project", encoding="utf-8")
+    aedb = project.with_suffix(".aedb")
+    aedb.mkdir()
+    (aedb / "edb.def").write_text("edb", encoding="utf-8")
+    monkeypatch.setattr(aedt_context_tool, "agent_home", lambda: tmp_path)
+    monkeypatch.setattr(runtime_adapter, "agent_home", lambda: tmp_path)
+    token = aedt_context_tool.store_context(
+        {
+            "profile": "synthetic",
+            "project": str(project),
+            "project_name": "synthetic",
+            "design": "Layout1",
+            "version": "2026.1",
+            "display": ":4.0",
+        }
+    )
+    context = EDAContext.decode(token)
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    monkeypatch.setattr(
+        service,
+        "spawn",
+        lambda command, **kwargs: kwargs["store"].record_event(
+            kwargs["job_id"], {"event": "worker.spawned", "pid": 123}
+        ),
+    )
+    plan = {
+        "schema_version": "eda.native-batch/v1",
+        "effect": "observe",
+        "program": {
+            "language": "python",
+            "source": "def run(api, context):\n    return {'status': 'passed'}\n",
+        },
+        "scope": {"selectors": {}, "read_paths": [], "write_paths": [], "artifacts": []},
+        "transaction": {
+            "strategy": "none",
+            "source_fingerprints": {},
+            "fresh_reopen": False,
+            "promotion": "none",
+        },
+        "validation": {"program": None, "required_artifacts": []},
+        "limits": {"timeout_seconds": 60, "max_output_bytes": 65536},
+    }
+    response = service.handle(
+        _request(
+            operation="native.batch",
+            target={"eda": "ansys-electronics-desktop", "context": token},
+            payload={"mutating": False, "plan": plan},
+        )
+    )
+    stored = service.store.request(response.result["job"]["job_id"])
+    materialized = stored.payload["plan"]
+    assert stored.target["context_id"] == context.locator["context_id"]
+    assert "context" not in stored.target
+    assert materialized["runtime"] == "ansys.pyaedt.hfss3dlayout"
+    assert materialized["scope"]["resource_kind"] == "aedt-project"
+    assert materialized["scope"]["selectors"] == {"version": "2026.1", "design": "Layout1"}
+    assert materialized["scope"]["read_paths"] == [str(project.resolve())]
+    assert materialized["effect"] == "observe"
+    assert "write_paths" in materialized["scope"]
+    assert "limits" in materialized
+
+
+def test_service_rejects_changed_context_content_before_job(tmp_path, monkeypatch):
+    from ansysem_agent_bridge import aedt_context_tool
+
+    project = tmp_path / "synthetic.aedt"
+    project.write_text("project", encoding="utf-8")
+    aedb = project.with_suffix(".aedb")
+    aedb.mkdir()
+    (aedb / "edb.def").write_text("edb", encoding="utf-8")
+    monkeypatch.setattr(aedt_context_tool, "agent_home", lambda: tmp_path)
+    monkeypatch.setattr(runtime_adapter, "agent_home", lambda: tmp_path)
+    token = aedt_context_tool.store_context(
+        {
+            "project": str(project),
+            "project_name": "synthetic",
+            "design": "Layout1",
+            "version": "2026.1",
+        }
+    )
+    project.write_text("changed-project-content", encoding="utf-8")
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    with pytest.raises(ValueError, match="content state changed"):
+        service.handle(
+            _request(
+                operation="native.batch",
+                target={"eda": "ansys-electronics-desktop", "context": token},
+                payload={"mutating": False, "plan": {}},
+            )
+        )
+    with sqlite3.connect(service.jobs_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_context_native_materialization_rejects_explicit_identity_and_fingerprint_conflicts(
+    tmp_path,
+):
+    project = tmp_path / "synthetic.aedt"
+    target = {"project": str(project), "design": "Layout1", "version": "2026.1"}
+    binding = {"bundle_sha256": "a" * 64}
+    plan = {
+        "runtime": "ansys.pyaedt.hfss3dlayout",
+        "effect": "staged_mutation",
+        "scope": {
+            "resource_kind": "aedt-project",
+            "selectors": {"design": "OtherDesign"},
+            "read_paths": [],
+        },
+        "transaction": {"source_fingerprints": {}},
+    }
+    with pytest.raises(ValueError, match="selector design conflicts"):
+        runtime_adapter._materialize_context_native_plan(plan, target=target, binding=binding)
+    plan["scope"]["selectors"]["design"] = "Layout1"
+    plan["transaction"]["source_fingerprints"] = {str(project): "b" * 64}
+    with pytest.raises(ValueError, match="source fingerprint conflicts"):
+        runtime_adapter._materialize_context_native_plan(plan, target=target, binding=binding)
+    plan["transaction"]["source_fingerprints"] = {str(project): "a" * 64}
+    materialized = runtime_adapter._materialize_context_native_plan(
+        plan, target=target, binding=binding
+    )
+    assert materialized["scope"]["read_paths"] == [str(project.resolve())]
+    assert materialized["transaction"]["source_fingerprints"] == {str(project.resolve()): "a" * 64}
+
+
 def test_service_rejects_stale_context_generation(tmp_path, monkeypatch):
     from eda_bridge_runtime import EDAContext
 
@@ -317,6 +493,47 @@ def test_service_rejects_stale_context_generation(tmp_path, monkeypatch):
     )
     with pytest.raises(ValueError, match="stale"):
         service.handle(_request(target={"eda": "ansys-electronics-desktop", "context": token}))
+
+
+def test_service_rejects_explicit_target_conflict_with_context(tmp_path, monkeypatch):
+    from eda_bridge_runtime import EDAContext
+
+    context_root = tmp_path / "runtime" / "contexts"
+    context_root.mkdir(parents=True)
+    (context_root / "ctx_safe123.json").write_text(
+        json.dumps(
+            {
+                "generation": 1,
+                "target": {
+                    "project": "synthetic.aedt",
+                    "project_name": "synthetic",
+                    "design": "Layout1",
+                    "version": "2026.1",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(runtime_adapter, "agent_home", lambda: tmp_path)
+    token = EDAContext(
+        eda="ansys-electronics-desktop",
+        target_kind="design",
+        locator={"context_id": "ctx_safe123"},
+        generation=1,
+    ).encode()
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    with pytest.raises(ValueError, match="Explicit design conflicts"):
+        service.handle(
+            _request(
+                target={
+                    "eda": "ansys-electronics-desktop",
+                    "context": token,
+                    "design": "OtherDesign",
+                }
+            )
+        )
 
 
 def test_cli_serve_keeps_protocol_on_real_stdout(tmp_path):
@@ -391,6 +608,10 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     assert by_id["layout.solve"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-solve/v1")
     assert by_id["native.batch"]["operation_class"] == "generic-native-execution"
     assert by_id["native.batch"]["input_schema"]["plan_schema"] == "eda.native-batch/v1"
+    assert by_id["native.batch"]["accepts_context"] is True
+    assert by_id["native.batch"]["returns_context"] is True
+    assert "plan.scope.read_paths" in by_id["native.batch"]["input_schema"]["derived_fields"]
+    assert "plan.effect" in by_id["native.batch"]["input_schema"]["agent_required"]
     for operation in ("layout.build", "layout.solve", "model.apply"):
         shortcut = by_id[operation]["compiled_shortcut"]
         assert shortcut["implements_asset_id"]

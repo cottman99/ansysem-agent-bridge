@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 import sys
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .aedt_context_tool import store_context
 from .capabilities import capability_map
 from .config import agent_home
 from .discovery import select_installation
@@ -26,7 +28,7 @@ from .layout_solve import execute_layout_solve_plan
 from .live_probe import live_hfss3dlayout_probe
 from .native_batch import execute_native_batch
 from .operations import export_layout_image
-from .project_bundle import inspect_project_bundle
+from .project_bundle import bundle_state_revision, inspect_project_bundle
 from .project_create import create_hfss3dlayout_project
 from .runtime import runtime_snapshot
 from .session_lifecycle import release_owned_aedt_session
@@ -111,6 +113,8 @@ _OPERATIONS = {
 }
 
 _CERTIFIED_WORKFLOWS = {"layout.build", "layout.solve", "model.apply"}
+_NATIVE_RUNTIME = "ansys.pyaedt.hfss3dlayout"
+_CONTEXT_IDENTITY_FIELDS = ("project", "project_name", "design", "version", "profile", "display")
 
 
 def _operation_class(operation: str) -> str:
@@ -123,6 +127,108 @@ def _operation_class(operation: str) -> str:
 
 def _native_batch_available() -> bool:
     return os.name == "posix"
+
+
+def _verified_content_binding(record: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    target = record.get("target")
+    binding = record.get("binding")
+    if not isinstance(target, dict) or not isinstance(binding, dict):
+        raise ValueError(
+            "AnsysEM context has no content-state binding; save the complete bundle and recapture"
+        )
+    if binding.get("schema_version") != 1 or binding.get("resource_kind") != "aedt-project":
+        raise ValueError("AnsysEM context content-state binding is unsupported")
+    project = Path(str(target.get("project") or "")).expanduser().resolve()
+    expected_identity = {
+        "project_name": target.get("project_name"),
+        "design": target.get("design"),
+        "version": target.get("version"),
+        "profile": target.get("profile"),
+        "display": target.get("display"),
+    }
+    for field, expected in expected_identity.items():
+        if binding.get(field) != expected:
+            raise ValueError(f"AnsysEM context {field} binding is inconsistent")
+    try:
+        actual_revision = bundle_state_revision(project)
+    except (OSError, ValueError) as exc:
+        raise ValueError(
+            "AnsysEM context content state is unavailable; capture a fresh continuation"
+        ) from exc
+    if actual_revision != binding.get("state_revision"):
+        raise ValueError("AnsysEM context content state changed; capture a fresh continuation")
+    digest = binding.get("bundle_sha256")
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        raise ValueError("AnsysEM context bundle fingerprint is invalid")
+    return target, binding
+
+
+def _materialize_context_native_plan(
+    value: Any, *, target: dict[str, Any], binding: dict[str, Any]
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("native.batch requires a governed native batch plan")
+    plan = deepcopy(value)
+    runtime = plan.get("runtime")
+    if runtime is not None and runtime != "" and runtime != _NATIVE_RUNTIME:
+        raise ValueError("native.batch runtime conflicts with the continuation context")
+    plan["runtime"] = _NATIVE_RUNTIME
+
+    scope = plan.get("scope")
+    if not isinstance(scope, dict):
+        raise ValueError("context-driven native.batch still requires an explicit scope object")
+    resource_kind = scope.get("resource_kind")
+    if resource_kind is not None and resource_kind != "" and resource_kind != "aedt-project":
+        raise ValueError("native.batch resource kind conflicts with the continuation context")
+    scope["resource_kind"] = "aedt-project"
+    selectors = scope.get("selectors")
+    if not isinstance(selectors, dict):
+        raise ValueError("context-driven native.batch still requires scope.selectors")
+    for field in ("version", "design"):
+        expected = target.get(field)
+        supplied = selectors.get(field)
+        if supplied is not None and supplied != "" and supplied != expected:
+            raise ValueError(
+                f"native.batch selector {field} conflicts with the continuation context"
+            )
+        if not expected:
+            raise ValueError(f"AnsysEM continuation context has no bound {field}")
+        selectors[field] = expected
+
+    project = Path(str(target["project"])).expanduser().resolve()
+    read_paths = scope.get("read_paths")
+    if read_paths is not None and read_paths != []:
+        if not isinstance(read_paths, list) or len(read_paths) != 1:
+            raise ValueError("native.batch read scope conflicts with the continuation context")
+        if Path(str(read_paths[0])).expanduser().resolve() != project:
+            raise ValueError("native.batch read path conflicts with the continuation context")
+    scope["read_paths"] = [str(project)]
+
+    if plan.get("effect") == "staged_mutation":
+        transaction = plan.get("transaction")
+        if not isinstance(transaction, dict):
+            raise ValueError("context-driven mutation still requires an explicit transaction")
+        expected_fingerprints = {str(project): binding["bundle_sha256"]}
+        supplied_fingerprints = transaction.get("source_fingerprints")
+        if supplied_fingerprints is not None and supplied_fingerprints != {}:
+            if not isinstance(supplied_fingerprints, dict) or len(supplied_fingerprints) != 1:
+                raise ValueError(
+                    "native.batch source fingerprint conflicts with the continuation context"
+                )
+            supplied_path, supplied_digest = next(iter(supplied_fingerprints.items()))
+            if (
+                Path(str(supplied_path)).expanduser().resolve() != project
+                or str(supplied_digest).casefold() != binding["bundle_sha256"]
+            ):
+                raise ValueError(
+                    "native.batch source fingerprint conflicts with the continuation context"
+                )
+        transaction["source_fingerprints"] = expected_fingerprints
+    return plan
 
 
 class _AnsysAdapterBase:
@@ -199,6 +305,8 @@ class _AnsysAdapterBase:
                 native_available = _native_batch_available()
                 descriptor.update(
                     {
+                        "accepts_context": True,
+                        "returns_context": True,
                         "state": {
                             "available": native_available,
                             "healthy": native_available,
@@ -206,6 +314,29 @@ class _AnsysAdapterBase:
                         "input_schema": {
                             "required": ["plan"],
                             "plan_schema": "eda.native-batch/v1",
+                            "agent_required": [
+                                "purpose",
+                                "plan.effect",
+                                "plan.program",
+                                "plan.scope.write_paths",
+                                "plan.scope.artifacts",
+                                "plan.transaction.strategy",
+                                "plan.transaction.fresh_reopen",
+                                "plan.transaction.promotion",
+                                "plan.validation",
+                                "plan.limits",
+                            ],
+                            "derived_fields": [
+                                "plan.batch_id",
+                                "plan.program.sha256",
+                                "plan.validation.program.sha256",
+                                "plan.runtime",
+                                "plan.scope.resource_kind",
+                                "plan.scope.selectors.version",
+                                "plan.scope.selectors.design",
+                                "plan.scope.read_paths",
+                                "plan.transaction.source_fingerprints",
+                            ],
                         },
                     }
                 )
@@ -466,7 +597,34 @@ class _AnsysAdapterBase:
             plan = request.payload.get("plan")
             if not isinstance(plan, dict):
                 raise ValueError("native.batch requires a governed native batch plan")
-            return execute_native_batch(plan, redact_paths=redact)
+            result = execute_native_batch(plan, redact_paths=redact)
+            if request.target.get("context_id") and result.get("status") == "passed":
+                project = (
+                    plan["scope"]["read_paths"][0]
+                    if plan["effect"] == "observe"
+                    else plan["scope"]["write_paths"][0]
+                )
+                continuation = request.target.get("_continuation_context")
+                if plan["effect"] != "observe" or not continuation:
+                    continuation = store_context(
+                        {
+                            "connection_id": request.target.get("connection_id"),
+                            "profile": request.target.get("profile"),
+                            "project": str(Path(project).expanduser().resolve()),
+                            "project_name": Path(project).stem,
+                            "design": plan["scope"]["selectors"]["design"],
+                            "version": plan["scope"]["selectors"]["version"],
+                            "display": request.target.get("display") or os.environ.get("DISPLAY"),
+                        },
+                        connection_id=request.target.get("connection_id"),
+                    )
+                result["eda_context"] = continuation
+                result["continuation_context"] = continuation
+                result["continuation_state"] = {
+                    "content_bound": True,
+                    "target_kind": "design",
+                }
+            return result
         if operation == "workspace.begin":
             return begin_workspace(
                 source_project=self._value(request, "source", required=True),
@@ -629,13 +787,29 @@ class DurableAnsysService:
         record = json.loads(path.read_text(encoding="utf-8"))
         if record.get("generation") != context.generation:
             raise ValueError("AnsysEM context is stale; copy it again from AEDT")
+        record_target = record.get("target")
+        if not isinstance(record_target, dict):
+            raise ValueError("AnsysEM context target record is invalid")
+        for field in _CONTEXT_IDENTITY_FIELDS:
+            supplied = request.target.get(field)
+            recorded = record_target.get(field)
+            if supplied is not None and recorded is not None and supplied != recorded:
+                raise ValueError(f"Explicit {field} conflicts with the AnsysEM context")
         data = request.to_dict()
         data["target"] = {
-            **record["target"],
+            **record_target,
             **{key: value for key, value in request.target.items() if key != "context"},
             "eda": "ansys-electronics-desktop",
             "context_id": context_id,
+            "_continuation_context": str(token),
         }
+        if request.operation == "native.batch":
+            bound_target, binding = _verified_content_binding(record)
+            payload = dict(data["payload"])
+            payload["plan"] = _materialize_context_native_plan(
+                payload.get("plan"), target=bound_target, binding=binding
+            )
+            data["payload"] = payload
         return RequestEnvelope.from_dict(data)
 
     def _job_status(self, request):
