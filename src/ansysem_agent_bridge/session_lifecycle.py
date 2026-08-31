@@ -142,6 +142,29 @@ def _open_existing_desktop(*, version: str, port: int):
     )
 
 
+def authorize_owned_aedt_session(
+    *,
+    resource_id: str,
+    release_handle: str,
+    project: str | Path,
+    version: str,
+    design: str | None = None,
+    database: str | Path | None = None,
+) -> dict[str, Any]:
+    """Resolve one active Runtime-owned AEDT session without exposing its port."""
+    record = OwnedSessionStore(database).authorize(resource_id, release_handle)
+    if record["state"] != "active" or not _pid_is_alive(int(record["pid"])):
+        raise RuntimeError("AEDT resource is not an active owned session")
+    expected_project = str(Path(project).expanduser().resolve())
+    if str(Path(record["project"]).expanduser().resolve()) != expected_project:
+        raise PermissionError("AEDT resource project identity does not match")
+    if str(record["version"]) != str(version):
+        raise PermissionError("AEDT resource version identity does not match")
+    if design and str(record.get("design") or "") != str(design):
+        raise PermissionError("AEDT resource design identity does not match")
+    return record
+
+
 def release_owned_aedt_session(
     *,
     resource_id: str,

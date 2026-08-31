@@ -49,6 +49,9 @@ def test_capabilities_advertise_owned_aedt_resource_release():
         "resource_id",
         "release_handle",
     ]
+    reuse = operations["runtime.snapshot"]["input_schema"]["owned_session_reuse"]
+    assert reuse["requires_together"] == ["resource_id", "release_handle"]
+    assert reuse["identity_bound"] == ["project", "version", "design"]
 
 
 def test_runtime_snapshot_refuses_hidden_long_lived_session():
@@ -59,6 +62,50 @@ def test_runtime_snapshot_refuses_hidden_long_lived_session():
     )
     with pytest.raises(ValueError, match="use session.launch"):
         runtime_adapter._AnsysAdapterBase()._dispatch(request)
+
+
+def test_runtime_snapshot_reuses_only_authorized_owned_session(monkeypatch):
+    captured = {}
+
+    def authorize(**kwargs):
+        captured["authorization"] = kwargs
+        return {"pid": 123, "port": 50051}
+
+    def probe(**kwargs):
+        captured["probe"] = kwargs
+        return {"status": "ready", "session_reused": True}
+
+    monkeypatch.setattr(runtime_adapter, "authorize_owned_aedt_session", authorize)
+    monkeypatch.setattr(runtime_adapter, "live_hfss3dlayout_probe", probe)
+    request = SimpleNamespace(
+        operation="runtime.snapshot",
+        payload={
+            "live": True,
+            "resource_id": "aedt_owned",
+            "release_handle": "secret",
+            "redact_paths": True,
+        },
+        target={
+            "project": "/scratch/demo.aedt",
+            "version": "2026.1",
+            "design": "Layout1",
+        },
+    )
+
+    result = runtime_adapter._AnsysAdapterBase()._dispatch(request)
+
+    assert result == {"status": "ready", "session_reused": True}
+    assert captured["authorization"] == {
+        "resource_id": "aedt_owned",
+        "release_handle": "secret",
+        "project": "/scratch/demo.aedt",
+        "version": "2026.1",
+        "design": "Layout1",
+    }
+    assert captured["probe"]["port"] == 50051
+    assert captured["probe"]["expected_pid"] == 123
+    assert captured["probe"]["new_desktop"] is False
+    assert captured["probe"]["close_desktop"] is False
 
 
 @pytest.mark.parametrize(
