@@ -31,7 +31,10 @@ from .operations import export_layout_image
 from .project_bundle import bundle_state_revision, inspect_project_bundle
 from .project_create import create_hfss3dlayout_project
 from .runtime import runtime_snapshot
-from .session_lifecycle import release_owned_aedt_session
+from .session_lifecycle import (
+    authorize_owned_aedt_session,
+    release_owned_aedt_session,
+)
 from .transaction import execute_operation_plan
 from .workspace import (
     abort_workspace,
@@ -291,6 +294,25 @@ class _AnsysAdapterBase:
                     "required": ["resource_id", "release_handle"],
                     "optional": ["timeout_seconds"],
                 }
+            if descriptor["id"] == "runtime.snapshot":
+                descriptor["input_schema"] = {
+                    "required": [],
+                    "optional": [
+                        "project",
+                        "version",
+                        "design",
+                        "live",
+                        "validate",
+                        "redact_paths",
+                        "reuse_existing",
+                        "resource_id",
+                        "release_handle",
+                    ],
+                    "owned_session_reuse": {
+                        "requires_together": ["resource_id", "release_handle"],
+                        "identity_bound": ["project", "version", "design"],
+                    },
+                }
             if descriptor["id"] == "layout.build":
                 descriptor["input_schema"] = {
                     "required": ["plan"],
@@ -501,16 +523,33 @@ class _AnsysAdapterBase:
                     "runtime.snapshot cannot leave a new AEDT process open; use session.launch"
                 )
             if request.payload.get("live"):
+                resource_id = self._value(request, "resource_id")
+                release_handle = self._value(request, "release_handle")
+                if bool(resource_id) != bool(release_handle):
+                    raise ValueError(
+                        "runtime.snapshot owned-session reuse requires resource_id "
+                        "and release_handle"
+                    )
+                owned = None
+                if resource_id:
+                    owned = authorize_owned_aedt_session(
+                        resource_id=str(resource_id),
+                        release_handle=str(release_handle),
+                        project=self._value(request, "project", required=True),
+                        version=str(self._value(request, "version", required=True)),
+                        design=self._value(request, "design"),
+                    )
                 return live_hfss3dlayout_probe(
                     project=self._value(request, "project", required=True),
                     version=self._value(request, "version", required=True),
                     design=self._value(request, "design"),
-                    port=int(request.payload.get("port", 0)),
-                    new_desktop=not bool(request.payload.get("reuse_existing")),
-                    close_desktop=not bool(request.payload.get("leave_open")),
+                    port=int(owned["port"] if owned else request.payload.get("port", 0)),
+                    new_desktop=False if owned else not bool(request.payload.get("reuse_existing")),
+                    close_desktop=False if owned else not bool(request.payload.get("leave_open")),
                     validate=bool(request.payload.get("validate")),
                     redact_paths=redact,
                     since_revision=request.payload.get("since_revision"),
+                    expected_pid=int(owned["pid"]) if owned else None,
                 )
             return runtime_snapshot(
                 installation_id=self._value(request, "instance"),

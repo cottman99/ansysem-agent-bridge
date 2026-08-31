@@ -4,6 +4,7 @@ import hashlib
 import os
 import platform
 import socket
+import time
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,7 @@ def live_hfss3dlayout_probe(
     image_height: int = 1000,
     redact_paths: bool = False,
     since_revision: str | None = None,
+    expected_pid: int | None = None,
 ) -> dict[str, Any]:
     project_path = Path(project).expanduser().resolve()
     if not project_path.is_file() or project_path.suffix.casefold() != ".aedt":
@@ -67,6 +69,8 @@ def live_hfss3dlayout_probe(
 
     app = None
     output = Path(export_image).expanduser().resolve() if export_image else None
+    started = time.monotonic()
+    phase_timing_ms: dict[str, float] = {}
     try:
         kwargs: dict[str, Any] = {
             "project": str(project_path),
@@ -79,8 +83,13 @@ def live_hfss3dlayout_probe(
             kwargs["design"] = design
         if port:
             kwargs["port"] = port
+        open_started = time.monotonic()
         app = Hfss3dLayout(**kwargs)
+        phase_timing_ms["desktop_connect_and_project_open"] = round(
+            (time.monotonic() - open_started) * 1000, 3
+        )
 
+        readback_started = time.monotonic()
         desktop = _safe_value(app, "desktop_class")
         pid = _safe_value(desktop, "aedt_process_id") if desktop is not None else None
         if pid is None:
@@ -88,6 +97,8 @@ def live_hfss3dlayout_probe(
                 pid = app.odesktop.GetProcessID()
             except Exception:
                 pid = None
+        if expected_pid is not None and int(pid or 0) != int(expected_pid):
+            raise PermissionError("AEDT resource process identity changed")
         try:
             native_version = app.odesktop.GetVersion()
         except Exception:
@@ -148,6 +159,9 @@ def live_hfss3dlayout_probe(
                         "error": {"type": exc.__class__.__name__, "message": str(exc)},
                     }
         state["validation"] = validation
+        phase_timing_ms["identity_and_state_readback"] = round(
+            (time.monotonic() - readback_started) * 1000, 3
+        )
         revision = state_revision({"identity": identity, "state": state})
         changed = since_revision != revision
         payload: dict[str, Any] = {
@@ -189,6 +203,16 @@ def live_hfss3dlayout_probe(
                 with suppress(Exception):
                     app.release_desktop(close_projects=True, close_desktop=True)
                 raise
+        payload["session_reused"] = not new_desktop
+        if new_desktop and close_desktop:
+            release_started = time.monotonic()
+            app.release_desktop(close_projects=True, close_desktop=True)
+            app = None
+            phase_timing_ms["owned_session_release"] = round(
+                (time.monotonic() - release_started) * 1000, 3
+            )
+        phase_timing_ms["total"] = round((time.monotonic() - started) * 1000, 3)
+        payload["phase_timing_ms"] = phase_timing_ms
         return payload
     finally:
         if app is not None and new_desktop and close_desktop:

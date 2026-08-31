@@ -32,6 +32,14 @@ The profile selected by the registered Runtime connection is inherited by
 detached workers automatically. Agents do not repeat installation or display
 environment details on every durable request.
 
+An explicitly launched `session.launch` resource may be reused by a live
+`runtime.snapshot` only when its opaque `resource_id` and handle authorize an
+active Runtime-owned AEDT process and the recorded project, version, design,
+process id, and private gRPC port all match. The port is never selected or
+exposed by the Agent. Reuse attaches, reads, and detaches without closing the
+desktop; `session.release` remains the only operation that can close it. This
+is a Bridge-infrastructure optimization, not a shortcut for an HFSS task.
+
 For a greenfield task, the AnsysEM Skill establishes the typed `project.create`
 operation without requiring an existing context; capability discovery is used
 only when that contract is unknown or stale. The operation creates one isolated

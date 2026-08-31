@@ -59,3 +59,47 @@ def test_unregistered_long_lived_desktop_is_closed_immediately(tmp_path, monkeyp
             close_desktop=False,
         )
     assert released == [{"close_projects": True, "close_desktop": True}]
+
+
+def test_live_probe_reports_lifecycle_phases_and_releases_once(tmp_path, monkeypatch):
+    project = tmp_path / "demo.aedt"
+    project.write_text("synthetic", encoding="utf-8")
+    released = []
+
+    class FakeLayout:
+        def __init__(self, **_kwargs):
+            self.desktop_class = SimpleNamespace(aedt_process_id=123, port=50051)
+            self.odesktop = SimpleNamespace(GetProcessID=lambda: 123, GetVersion=lambda: "2026.1")
+            self.project_name = "demo"
+            self.design_name = "Layout1"
+            self.design_type = "HFSS 3D Layout"
+            self.design_list = ["Layout1"]
+            self.setup_names = []
+            self.port_list = []
+
+        def release_desktop(self, **kwargs):
+            released.append(kwargs)
+
+    core = ModuleType("ansys.aedt.core")
+    core.Hfss3dLayout = FakeLayout
+    monkeypatch.setitem(sys.modules, "ansys", ModuleType("ansys"))
+    monkeypatch.setitem(sys.modules, "ansys.aedt", ModuleType("ansys.aedt"))
+    monkeypatch.setitem(sys.modules, "ansys.aedt.core", core)
+
+    result = live_probe.live_hfss3dlayout_probe(
+        project=project,
+        version="2026.1",
+        design="Layout1",
+        new_desktop=True,
+        close_desktop=True,
+        expected_pid=123,
+    )
+
+    assert result["session_reused"] is False
+    assert set(result["phase_timing_ms"]) == {
+        "desktop_connect_and_project_open",
+        "identity_and_state_readback",
+        "owned_session_release",
+        "total",
+    }
+    assert released == [{"close_projects": True, "close_desktop": True}]
