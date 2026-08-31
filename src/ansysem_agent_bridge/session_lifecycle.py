@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
@@ -163,6 +164,58 @@ def authorize_owned_aedt_session(
     if design and str(record.get("design") or "") != str(design):
         raise PermissionError("AEDT resource design identity does not match")
     return record
+
+
+def authorize_captured_aedt_session(
+    *,
+    context: str,
+    project: str | Path,
+    version: str,
+    design: str,
+) -> dict[str, Any]:
+    """Authorize exact live-session reuse from a host-local EDA Context."""
+
+    try:
+        from eda_bridge_runtime import EDAContext
+    except ImportError as exc:
+        raise RuntimeError("EDA Runtime support is required for live Context reuse") from exc
+    decoded = EDAContext.decode(context)
+    if decoded.eda != "ansys-electronics-desktop":
+        raise ValueError("EDA context does not belong to Ansys Electronics Desktop")
+    if decoded.freshness.get("scope") != "live":
+        raise PermissionError("AnsysEM Context does not identify a live AEDT session")
+    context_id = str(decoded.locator.get("context_id") or "")
+    if not context_id or not context_id.replace("_", "").isalnum():
+        raise ValueError("invalid AnsysEM context id")
+    path = agent_home() / "runtime" / "contexts" / f"{context_id}.json"
+    if not path.is_file():
+        raise ValueError("AnsysEM context is unavailable on this host")
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if int(record.get("generation") or 0) != int(decoded.generation):
+        raise ValueError("AnsysEM context is stale; copy it again from AEDT")
+    target = record.get("target")
+    if not isinstance(target, dict):
+        raise ValueError("AnsysEM context target record is invalid")
+    expected_project = Path(project).expanduser().resolve()
+    recorded_project = Path(str(target.get("project") or "")).expanduser().resolve()
+    if recorded_project != expected_project:
+        raise PermissionError("AnsysEM Context project identity does not match")
+    if str(target.get("version") or "") != str(version):
+        raise PermissionError("AnsysEM Context version identity does not match")
+    if str(target.get("design") or "") != str(design):
+        raise PermissionError("AnsysEM Context design identity does not match")
+    pid = int(target.get("process_id") or 0)
+    port = int(target.get("port") or 0)
+    if not _pid_is_alive(pid) or port <= 0:
+        raise RuntimeError("AnsysEM Context session is no longer live")
+    return {
+        "pid": pid,
+        "port": port,
+        "version": str(version),
+        "project": str(expected_project),
+        "design": str(design),
+        "ownership": "user-owned-context",
+    }
 
 
 def release_owned_aedt_session(

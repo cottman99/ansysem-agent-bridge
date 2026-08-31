@@ -52,6 +52,10 @@ def test_capabilities_advertise_owned_aedt_resource_release():
     reuse = operations["runtime.snapshot"]["input_schema"]["owned_session_reuse"]
     assert reuse["requires_together"] == ["resource_id", "release_handle"]
     assert reuse["identity_bound"] == ["project", "version", "design"]
+    assert operations["design.live_patch"]["operation_class"] == "typed-live-edit"
+    assert operations["design.live_patch"]["mutates"] is True
+    assert operations["design.live_patch"]["run_model"] == "synchronous"
+    assert operations["design.live_finalize"]["run_model"] == "synchronous"
 
 
 def test_runtime_snapshot_refuses_hidden_long_lived_session():
@@ -62,6 +66,44 @@ def test_runtime_snapshot_refuses_hidden_long_lived_session():
     )
     with pytest.raises(ValueError, match="use session.launch"):
         runtime_adapter._AnsysAdapterBase()._dispatch(request)
+
+
+def test_session_launch_releases_owned_desktop_when_validation_refuses_session(monkeypatch):
+    released = {}
+    monkeypatch.setattr(
+        runtime_adapter,
+        "live_hfss3dlayout_probe",
+        lambda **_kwargs: {
+            "status": "attention_required",
+            "resource": {
+                "resource_id": "aedt_validation_failed",
+                "release_handle": "opaque-release-handle",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        runtime_adapter,
+        "release_owned_aedt_session",
+        lambda **kwargs: released.update(kwargs) or {"status": "passed"},
+    )
+    request = SimpleNamespace(
+        operation="session.launch",
+        payload={
+            "project": "/scratch/empty.aedt",
+            "version": "2026.1",
+            "design": "Layout1",
+            "validate": True,
+        },
+        target={},
+    )
+
+    result = runtime_adapter._AnsysAdapterBase()._dispatch(request)
+
+    assert result["status"] == "attention_required"
+    assert released == {
+        "resource_id": "aedt_validation_failed",
+        "release_handle": "opaque-release-handle",
+    }
 
 
 def test_runtime_snapshot_reuses_only_authorized_owned_session(monkeypatch):
@@ -649,6 +691,7 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
         "bridge-infrastructure",
         "certified-workflow",
         "generic-native-execution",
+        "typed-live-edit",
     }
     assert {"docs.status", "docs.query", "docs.get", "layout.build", "layout.solve"}.issubset(by_id)
     assert by_id["layout.build"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-build/v1")
@@ -665,6 +708,43 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
         assert shortcut["fallback"] == "governed_native_execution"
     with sqlite3.connect(service.jobs_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_service_executes_live_patch_synchronously_without_job_spawn(tmp_path, monkeypatch):
+    service = runtime_adapter.DurableAnsysService(
+        tmp_path / "jobs.sqlite3", tmp_path / "ledger.sqlite3"
+    )
+    sentinel = SimpleNamespace(status="passed")
+    monkeypatch.setattr(
+        runtime_adapter,
+        "build_runtime",
+        lambda _ledger: SimpleNamespace(execute=lambda _request: sentinel),
+    )
+    monkeypatch.setattr(
+        service.store,
+        "submit",
+        lambda _request: (_ for _ in ()).throw(AssertionError("job submission is redundant")),
+    )
+
+    response = service.handle(
+        _request(
+            operation="design.live_patch",
+            payload={
+                "mutating": True,
+                "project": "/scratch/demo.aedt",
+                "version": "2026.1",
+                "design": "Layout1",
+                "operation": {
+                    "op": "set_design_variable",
+                    "name": "trace_w",
+                    "expected_before": "10mil",
+                    "value": "12mil",
+                },
+            },
+        )
+    )
+
+    assert response is sentinel
 
 
 def test_degraded_experience_disables_shortcuts_but_not_native_execution(monkeypatch):

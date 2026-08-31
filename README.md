@@ -93,6 +93,7 @@ and describe the task naturally.
 | “Inspect this project before changing anything.” | Verifies the complete project bundle and returns bounded object, port, setup, and revision facts. |
 | “Find the version-matched API for this operation.” | Queries private local documentation and returns focused evidence without launching or mutating AEDT. |
 | “Export a top view of this exact layout.” | Uses the native editor export and labels precisely what the image does and does not prove. |
+| “Change this variable in the design I am watching, but do not save yet.” | Reuses the exact live AEDT process selected by Context, checks the prior value, applies one typed variable edit, reads it back, and leaves save or discard explicit. |
 | “Start from a blank project: build this stackup and trace, place the two edge ports, and add a 1–5 GHz setup.” | Uses a typed material/stackup/geometry/port plan, protects the empty source, and requires fresh PyEDB and AEDT readback. |
 | “Run these five frequencies, export S11/S21 to CSV, and leave the S-parameter plot ready in AEDT.” | Creates an explicit named sweep, waits for the solve, checks every numeric point, exports CSV, creates a native report, and freshly reopens the solved project. |
 | “Apply these known layout or bondwire changes.” | Uses typed operations on a copy, then saves, closes, freshly reopens, and runs exact assertions. |
@@ -106,11 +107,12 @@ support and stop rule behind each capability.
 ## A safer model-update workflow
 
 1. Select or copy the exact AEDT project/design Context.
-2. Inspect the live identity and source bundle.
-3. Begin one task candidate from the frozen source.
-4. Batch compatible edits into typed patches.
-5. Save, close, and freshly reopen before accepting each checkpoint.
-6. Promote once, only when the user asks for a deliverable.
+2. For supervised small changes, reuse that live GUI session and keep, save, or
+   discard explicitly.
+3. For unattended or high-risk work, begin one task candidate from the frozen
+   source and batch compatible edits into typed patches.
+4. Freshly reopen before accepting a durable checkpoint.
+5. Promote once, only when the user asks for a deliverable.
 
 This avoids both dangerous in-place edits and the opposite failure mode of
 creating a permanent project version for every small correction.

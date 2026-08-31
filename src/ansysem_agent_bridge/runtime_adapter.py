@@ -25,6 +25,7 @@ from .experience_shortcuts import (
 )
 from .layout_build import execute_layout_build_plan
 from .layout_solve import execute_layout_solve_plan
+from .live_patch import apply_live_patch, finalize_live_design
 from .live_probe import live_hfss3dlayout_probe
 from .native_batch import execute_native_batch
 from .operations import export_layout_image
@@ -102,6 +103,8 @@ _OPERATIONS = {
     "runtime.snapshot",
     "session.launch",
     "session.release",
+    "design.live_patch",
+    "design.live_finalize",
     "layout.export_image",
     "layout.build",
     "layout.solve",
@@ -313,6 +316,47 @@ class _AnsysAdapterBase:
                         "identity_bound": ["project", "version", "design"],
                     },
                 }
+            if descriptor["id"] == "design.live_patch":
+                descriptor.update(
+                    {
+                        "operation_class": "typed-live-edit",
+                        "run_model": "synchronous",
+                        "input_schema": {
+                            "required": [
+                                "project",
+                                "version",
+                                "design",
+                                "operation",
+                            ],
+                            "optional": ["resource_id", "release_handle"],
+                            "authorization": {
+                                "requires_one_of": [
+                                    ["resource_id", "release_handle"],
+                                    ["EDA_CONTEXT:live-session"],
+                                ]
+                            },
+                            "operation_schema": "ansysem.live-design-variable-operation/v1",
+                        },
+                    }
+                )
+            if descriptor["id"] == "design.live_finalize":
+                descriptor.update(
+                    {
+                        "operation_class": "typed-live-edit",
+                        "run_model": "synchronous",
+                        "input_schema": {
+                            "required": ["project", "version", "design", "action"],
+                            "optional": ["resource_id", "release_handle", "decision"],
+                            "action_enum": ["keep_unsaved", "save", "discard_unsaved"],
+                            "authorization": {
+                                "requires_one_of": [
+                                    ["resource_id", "release_handle"],
+                                    ["EDA_CONTEXT:live-session"],
+                                ]
+                            },
+                        },
+                    }
+                )
             if descriptor["id"] == "layout.build":
                 descriptor["input_schema"] = {
                     "required": ["plan"],
@@ -564,7 +608,7 @@ class _AnsysAdapterBase:
                 redact_paths=redact,
             )
         if operation == "session.launch":
-            return live_hfss3dlayout_probe(
+            result = live_hfss3dlayout_probe(
                 project=self._value(request, "project", required=True),
                 version=self._value(request, "version", required=True),
                 design=self._value(request, "design"),
@@ -574,11 +618,39 @@ class _AnsysAdapterBase:
                 validate=bool(request.payload.get("validate")),
                 redact_paths=redact,
             )
+            resource = result.get("resource")
+            if result.get("status") not in {"ready", "passed"} and isinstance(resource, dict):
+                release_owned_aedt_session(
+                    resource_id=str(resource.get("resource_id") or ""),
+                    release_handle=str(resource.get("release_handle") or ""),
+                )
+            return result
         if operation == "session.release":
             return release_owned_aedt_session(
                 resource_id=str(self._value(request, "resource_id", required=True)),
                 release_handle=str(self._value(request, "release_handle", required=True)),
                 timeout_seconds=float(request.payload.get("timeout_seconds", 15.0)),
+            )
+        if operation == "design.live_patch":
+            return apply_live_patch(
+                resource_id=self._value(request, "resource_id"),
+                release_handle=self._value(request, "release_handle"),
+                context=request.target.get("_continuation_context"),
+                project=self._value(request, "project", required=True),
+                version=str(self._value(request, "version", required=True)),
+                design=str(self._value(request, "design", required=True)),
+                operation=self._value(request, "operation", required=True),
+            )
+        if operation == "design.live_finalize":
+            return finalize_live_design(
+                resource_id=self._value(request, "resource_id"),
+                release_handle=self._value(request, "release_handle"),
+                context=request.target.get("_continuation_context"),
+                project=self._value(request, "project", required=True),
+                version=str(self._value(request, "version", required=True)),
+                design=str(self._value(request, "design", required=True)),
+                action=str(self._value(request, "action", required=True)),
+                decision=request.payload.get("decision"),
             )
         if operation == "layout.export_image":
             return export_layout_image(
@@ -747,6 +819,8 @@ class DurableAnsysService:
         if request.operation == "runtime.capabilities" or request.operation.startswith("docs."):
             return build_runtime(self.ledger_path).execute(request)
         request = self._with_default_profile(self._resolve_context(request))
+        if request.operation in {"design.live_patch", "design.live_finalize"}:
+            return build_runtime(self.ledger_path).execute(request)
         if request.target.get("eda") != "ansys-electronics-desktop":
             raise ValueError("request target is not Ansys Electronics Desktop")
         job = self.store.submit(request)

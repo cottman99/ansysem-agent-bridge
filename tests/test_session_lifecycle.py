@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -115,4 +116,56 @@ def test_authorize_owned_session_binds_exact_project_version_and_design(tmp_path
             version="2026.1",
             design="Layout1",
             database=database,
+        )
+
+
+def test_authorize_captured_session_requires_live_exact_context(tmp_path, monkeypatch):
+    from eda_bridge_runtime import EDAContext
+
+    project = tmp_path / "demo.aedt"
+    context_root = tmp_path / "runtime" / "contexts"
+    context_root.mkdir(parents=True)
+    monkeypatch.setattr(session_lifecycle, "agent_home", lambda: tmp_path)
+    monkeypatch.setattr(session_lifecycle, "_pid_is_alive", lambda pid: pid == 123)
+    token = EDAContext(
+        eda="ansys-electronics-desktop",
+        target_kind="design",
+        locator={"context_id": "ctx_live"},
+        display_name="demo:Layout1",
+        generation=2,
+        session={"process_id": 123, "port": 50051, "state": "live"},
+        target={"project_name": "demo", "design": "Layout1", "version": "2026.1"},
+        freshness={"scope": "live", "generation": 2, "state": "captured-live"},
+    ).encode()
+    (context_root / "ctx_live.json").write_text(
+        json.dumps(
+            {
+                "generation": 2,
+                "target": {
+                    "project": str(project),
+                    "design": "Layout1",
+                    "version": "2026.1",
+                    "process_id": 123,
+                    "port": 50051,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = session_lifecycle.authorize_captured_aedt_session(
+        context=token,
+        project=project,
+        version="2026.1",
+        design="Layout1",
+    )
+
+    assert result["ownership"] == "user-owned-context"
+    assert result["pid"] == 123
+    with pytest.raises(PermissionError, match="design identity"):
+        session_lifecycle.authorize_captured_aedt_session(
+            context=token,
+            project=project,
+            version="2026.1",
+            design="Other",
         )

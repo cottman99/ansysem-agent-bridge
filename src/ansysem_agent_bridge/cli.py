@@ -579,6 +579,9 @@ def main(argv: list[str] | None = None) -> int:
                 or args.command == "runtime"
                 and args.runtime_command == "worker"
                 and bool(selected_profile)
+                or args.command == "runtime"
+                and args.runtime_command == "serve"
+                and bool(selected_profile)
                 or args.command == "context-addin"
                 and args.context_addin_command in {"install", "uninstall", "refresh"}
             )
