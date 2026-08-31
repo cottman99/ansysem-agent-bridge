@@ -23,12 +23,57 @@ class _Variables:
         return True
 
 
+class _LayoutObject:
+    def __init__(self, name, layer, net):
+        self.name = name
+        self.placement_layer = layer
+        self.net_name = net
+
+
+class _LayoutEditor:
+    def __init__(self, geometries):
+        self._geometries = geometries
+
+    def Delete(self, assignment):
+        self._geometries.pop(assignment, None)
+
+    def GetProperties(self, tab, assignment):
+        assert tab == "BaseElementTab"
+        return ["PlacementLayer", "Net"] if assignment in self._geometries else []
+
+    def GetPropertyValue(self, tab, assignment, name):
+        assert tab == "BaseElementTab"
+        obj = self._geometries[assignment]
+        if name == "PlacementLayer":
+            return obj.placement_layer
+        if name == "Net":
+            return obj.net_name or ""
+        raise KeyError(name)
+
+
+class _Modeler:
+    def __init__(self):
+        self.geometries = {}
+        self.oeditor = _LayoutEditor(self.geometries)
+
+    def create_rectangle(self, *, layer, origin, sizes, name, net):
+        assert len(origin) == 2
+        assert len(sizes) == 2
+        created = _LayoutObject(name, layer, net)
+        self.geometries[name] = created
+        return created
+
+    def cleanup_objects(self):
+        return [], []
+
+
 class _App:
     def __init__(self, *, design="Layout1", variables=None):
         self.design_name = design
         self.variable_manager = _Variables()
         self.variable_manager.values.update(variables or {})
         self.odesktop = SimpleNamespace(GetProcessID=lambda: 123)
+        self.modeler = _Modeler()
         self.saved = False
         self.project_name = "demo"
 
@@ -55,6 +100,7 @@ class _App:
 
 def _install_fake_aedt(monkeypatch, app):
     live_patch._APP_CACHE.clear()
+    live_patch._PATCH_JOURNAL.clear()
     monkeypatch.setattr(
         live_patch,
         "authorize_owned_aedt_session",
@@ -135,6 +181,82 @@ def test_live_patch_refuses_stale_precondition_before_mutation(monkeypatch, tmp_
             },
         )
     assert app.variable_manager.values["trace_w"] == "10mil"
+
+
+def test_live_patch_creates_layout_rectangle_then_rolls_back_only_that_patch(monkeypatch, tmp_path):
+    app = _App()
+    _install_fake_aedt(monkeypatch, app)
+    common = {
+        "context": "EDA_CONTEXT:synthetic",
+        "project": tmp_path / "demo.aedt",
+        "version": "2026.1",
+        "design": "Layout1",
+    }
+    patch = live_patch.apply_live_patch(
+        **common,
+        patch_id="patch-rectangle",
+        operations=[
+            {
+                "op": "create_layout_rectangle",
+                "name": "AGENT_RECT",
+                "layer": "TOP",
+                "origin": ["0mm", "0mm"],
+                "sizes": ["2mm", "1mm"],
+                "net": "AGENT_NET",
+            }
+        ],
+    )
+
+    assert patch["readback"] == [
+        {
+            "op": "create_layout_rectangle",
+            "name": "AGENT_RECT",
+            "layer": "TOP",
+            "net": "AGENT_NET",
+        }
+    ]
+    assert "AGENT_RECT" in app.modeler.geometries
+
+    rollback = live_patch.finalize_live_design(
+        **common,
+        action="rollback_patch",
+        decision={"patch_id": "patch-rectangle"},
+    )
+
+    assert rollback["action"] == "rollback_patch"
+    assert "AGENT_RECT" not in app.modeler.geometries
+
+
+def test_live_patch_removes_created_rectangle_when_readback_fails(monkeypatch, tmp_path):
+    app = _App()
+
+    def create_with_wrong_layer(*, layer, origin, sizes, name, net):
+        created = _LayoutObject(name, f"wrong-{layer}", net)
+        app.modeler.geometries[name] = created
+        return created
+
+    app.modeler.create_rectangle = create_with_wrong_layer
+    _install_fake_aedt(monkeypatch, app)
+
+    with pytest.raises(RuntimeError, match="readback failed"):
+        live_patch.apply_live_patch(
+            context="EDA_CONTEXT:synthetic",
+            project=tmp_path / "demo.aedt",
+            version="2026.1",
+            design="Layout1",
+            patch_id="patch-failed-readback",
+            operations=[
+                {
+                    "op": "create_layout_rectangle",
+                    "name": "FAILED_RECT",
+                    "layer": "TOP",
+                    "origin": ["0mm", "0mm"],
+                    "sizes": ["2mm", "1mm"],
+                }
+            ],
+        )
+
+    assert "FAILED_RECT" not in app.modeler.geometries
 
 
 def test_live_patch_accepts_live_context_without_release_authority(monkeypatch, tmp_path):

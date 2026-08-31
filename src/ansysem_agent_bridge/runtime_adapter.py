@@ -326,16 +326,28 @@ class _AnsysAdapterBase:
                                 "project",
                                 "version",
                                 "design",
-                                "operation",
                             ],
-                            "optional": ["resource_id", "release_handle"],
+                            "optional": [
+                                "operation",
+                                "operations",
+                                "resource_id",
+                                "release_handle",
+                                "schema_version",
+                                "patch_id",
+                                "expected_revision",
+                                "conflict_policy",
+                                "validation",
+                            ],
                             "authorization": {
                                 "requires_one_of": [
                                     ["resource_id", "release_handle"],
                                     ["EDA_CONTEXT:live-session"],
                                 ]
                             },
-                            "operation_schema": "ansysem.live-design-variable-operation/v1",
+                            "requires_one_of": ["operation", "operations"],
+                            "operation_schema": (
+                                "eda.live-edit/v1 + ansysem.live-design-operation/v2"
+                            ),
                         },
                     }
                 )
@@ -347,7 +359,12 @@ class _AnsysAdapterBase:
                         "input_schema": {
                             "required": ["project", "version", "design", "action"],
                             "optional": ["resource_id", "release_handle", "decision"],
-                            "action_enum": ["keep_unsaved", "save", "discard_unsaved"],
+                            "action_enum": [
+                                "keep_unsaved",
+                                "save",
+                                "discard_unsaved",
+                                "rollback_patch",
+                            ],
                             "authorization": {
                                 "requires_one_of": [
                                     ["resource_id", "release_handle"],
@@ -632,6 +649,36 @@ class _AnsysAdapterBase:
                 timeout_seconds=float(request.payload.get("timeout_seconds", 15.0)),
             )
         if operation == "design.live_patch":
+            import hashlib
+
+            from eda_bridge_runtime import LIVE_EDIT_SCHEMA, validate_live_edit
+
+            requested_operations = request.payload.get("operations")
+            legacy_operation = request.payload.get("operation")
+            if requested_operations is None and legacy_operation is not None:
+                requested_operations = [legacy_operation]
+            patch_id = str(request.payload.get("patch_id") or "")
+            if not patch_id:
+                material = str(
+                    getattr(request, "idempotency_key", None)
+                    or getattr(request, "request_id", "live-patch")
+                )
+                patch_id = "patch-" + hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+            common = validate_live_edit(
+                {
+                    "schema_version": request.payload.get("schema_version") or LIVE_EDIT_SCHEMA,
+                    "patch_id": patch_id,
+                    "expected_revision": request.payload.get("expected_revision"),
+                    "operations": requested_operations,
+                    "conflict_policy": request.payload.get("conflict_policy") or "fail_on_change",
+                    "validation": request.payload.get("validation") or "readback",
+                }
+            )
+            if common["expected_revision"] is not None:
+                raise ValueError(
+                    "AnsysEM live edits currently require object preconditions, "
+                    "not a global revision"
+                )
             return apply_live_patch(
                 resource_id=self._value(request, "resource_id"),
                 release_handle=self._value(request, "release_handle"),
@@ -639,7 +686,8 @@ class _AnsysAdapterBase:
                 project=self._value(request, "project", required=True),
                 version=str(self._value(request, "version", required=True)),
                 design=str(self._value(request, "design", required=True)),
-                operation=self._value(request, "operation", required=True),
+                operations=common["operations"],
+                patch_id=common["patch_id"],
             )
         if operation == "design.live_finalize":
             return finalize_live_design(

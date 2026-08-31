@@ -93,7 +93,7 @@ and describe the task naturally.
 | “Inspect this project before changing anything.” | Verifies the complete project bundle and returns bounded object, port, setup, and revision facts. |
 | “Find the version-matched API for this operation.” | Queries private local documentation and returns focused evidence without launching or mutating AEDT. |
 | “Export a top view of this exact layout.” | Uses the native editor export and labels precisely what the image does and does not prove. |
-| “Change this variable in the design I am watching, but do not save yet.” | Reuses the exact live AEDT process selected by Context, checks the prior value, applies one typed variable edit, reads it back, and leaves save or discard explicit. |
+| “Draw this rectangle in the layout I am watching, but do not save yet.” | Reuses the exact live AEDT process selected by Context, applies one idempotent typed patch, reads the object back, and can roll back only that patch without saving. |
 | “Start from a blank project: build this stackup and trace, place the two edge ports, and add a 1–5 GHz setup.” | Uses a typed material/stackup/geometry/port plan, protects the empty source, and requires fresh PyEDB and AEDT readback. |
 | “Run these five frequencies, export S11/S21 to CSV, and leave the S-parameter plot ready in AEDT.” | Creates an explicit named sweep, waits for the solve, checks every numeric point, exports CSV, creates a native report, and freshly reopens the solved project. |
 | “Apply these known layout or bondwire changes.” | Uses typed operations on a copy, then saves, closes, freshly reopens, and runs exact assertions. |
