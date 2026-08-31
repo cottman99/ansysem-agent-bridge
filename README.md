@@ -55,6 +55,22 @@ fingerprint, timeout, fresh reopen, and validation. Existing build, solve, and
 model operations remain as asset-bound compiled shortcuts that reduce tokens
 and transcription risk without limiting broader official API reach.
 
+## Small edits stay in the AEDT window you are watching
+
+![Observed supervised live-edit latency in ADS and AEDT](docs/assets/readme/supervised-live-edit-latency.png)
+
+The AEDT 2026 R1 acceptance reused one already-open graphical process. A typed
+patch created a named `2 mm × 1 mm` rectangle on `TOP` and read its layout
+properties back. The observed adapter time was **937 ms**; exact replay returned
+in **12 ms** with zero duplicate objects; fingerprint-checked patch rollback
+took **204 ms** and verified that only the named rectangle was absent. Warm
+live-edit calls completed in **296–453 ms**.
+
+These are bounded observations from the disposable `0.2.0a12` acceptance on
+2026-08-31, not a general latency guarantee. Codex and Pi Agent independently
+passed the same create, replay, and rollback contract. See the
+[sanitized live-edit evidence](docs/VALIDATION_2026-08-31_LIVE_EDIT.md).
+
 ## Start with an explicit AEDT installation
 
 Install on the AEDT host:
@@ -184,7 +200,8 @@ behavior remain identical.
 - no implicit newest-version or foreground-window guessing;
 - no claim based on a lone `.aedt` file when an HFSS 3D Layout bundle is required;
 - no arbitrary Python in the default public operation surface;
-- no source overwrite and no accepted mutation before fresh reopen;
+- no implicit save or discard for supervised live edits; unattended durable
+  mutations protect the source and require fresh reopen;
 - no permanent version for each candidate attempt;
 - no blind GUI coordinates and no screenshot-only success;
 - no force-kill or silent discard of modified work;

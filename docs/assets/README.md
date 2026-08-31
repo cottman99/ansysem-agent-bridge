@@ -21,3 +21,9 @@ The product overview depicts the maintained stackup/geometry/port to solve and
 native-report path. It is not itself proof that a specific AEDT operation or
 solve ran; maintained capability claims and acceptance evidence remain in the
 repository documents.
+
+`readme/supervised-live-edit-latency.png` is the shared exact-data presentation
+of the bounded 2026-08-31 ADS and AEDT supervised live-edit acceptances. The
+AEDT panel is sourced from `VALIDATION_2026-08-31_LIVE_EDIT.md`; warm edits are
+live-call time, while create, replay, and rollback are adapter time. The two
+vendor panels use different timing boundaries and are not a vendor ranking.

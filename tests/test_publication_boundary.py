@@ -48,3 +48,16 @@ def test_public_text_has_no_known_private_identifiers() -> None:
             if token.casefold() in text.casefold():
                 findings.append((path.relative_to(REPO_ROOT).as_posix(), token))
     assert findings == []
+
+
+def test_bilingual_readmes_include_the_source_backed_live_edit_chart() -> None:
+    relative_path = "docs/assets/readme/supervised-live-edit-latency.png"
+    english = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    chinese = (REPO_ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+
+    assert (REPO_ROOT / relative_path).is_file()
+    assert relative_path in english
+    assert relative_path in chinese
+    for value in ("937", "12", "204", "296–453"):
+        assert value in english
+        assert value in chinese
