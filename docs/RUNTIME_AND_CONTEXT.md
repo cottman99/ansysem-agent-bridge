@@ -56,3 +56,13 @@ identity, Display, project/design names, version, capability digest, and
 freshness while keeping the full project path and credentials out of the
 token. Runtime accepts legacy v1 tokens and the adapter rejects missing or
 stale generations.
+
+For a complete `.aedt` plus `.aedb/edb.def` bundle, the private record also
+stores its full bundle digest and lightweight state revision. A later governed
+native request can therefore pass the opaque Context and omit repeated
+source-identity bookkeeping. The Bridge fills only the bound runtime,
+resource kind, version/design selectors, read path, and mutation source
+fingerprint, then checks the captured state before accepting the durable job.
+Explicit identity or fingerprint conflicts fail closed. The plan still carries
+all engineering and safety choices. Success returns `continuation_context` and
+a bounded `continuation_state`; `eda_context` remains as a compatibility alias.

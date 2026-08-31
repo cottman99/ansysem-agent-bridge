@@ -1,7 +1,10 @@
 import json
 import sys
 import types
+from pathlib import Path
 from types import SimpleNamespace
+
+import jsonschema
 
 from ansysem_agent_bridge import aedt_context_tool, context_addin
 
@@ -60,6 +63,57 @@ def test_store_context_accepts_background_identity_without_process_id(tmp_path, 
     assert context.locator["connection_id"] == "ansys-display4"
     assert "project" not in context.locator
     assert context.freshness["scope"] == "durable"
+
+
+def test_store_context_binds_complete_bundle_state_only_in_private_record(tmp_path, monkeypatch):
+    from eda_bridge_runtime import EDAContext
+
+    project = tmp_path / "synthetic.aedt"
+    project.write_text("project", encoding="utf-8")
+    aedb = project.with_suffix(".aedb")
+    aedb.mkdir()
+    (aedb / "edb.def").write_text("edb", encoding="utf-8")
+    monkeypatch.setattr(aedt_context_tool, "agent_home", lambda: tmp_path)
+    token = aedt_context_tool.store_context(
+        {
+            "profile": "synthetic",
+            "project": str(project),
+            "project_name": "synthetic",
+            "design": "Layout1",
+            "version": "2026.1",
+            "display": ":4.0",
+        }
+    )
+    context = EDAContext.decode(token)
+    record = json.loads(
+        (tmp_path / "runtime" / "contexts" / f"{context.locator['context_id']}.json").read_text()
+    )
+    binding = record["binding"]
+    assert binding["resource_kind"] == "aedt-project"
+    assert len(binding["bundle_sha256"]) == 64
+    assert len(binding["state_revision"]) == 64
+    assert binding["bundle_sha256"] not in token
+    public_context = json.dumps(
+        {
+            "locator": context.locator,
+            "session": context.session,
+            "target": context.target,
+            "freshness": context.freshness,
+        },
+        sort_keys=True,
+    )
+    assert "bundle_sha256" not in public_context
+    assert "state_revision" not in public_context
+    assert str(project.resolve()) not in public_context
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "docs"
+            / "schemas"
+            / "ansysem-continuation-context-record-v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    jsonschema.validate(record, schema)
 
 
 def test_context_addin_install_uses_official_pyaedt_registration(tmp_path, monkeypatch):

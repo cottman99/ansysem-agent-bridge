@@ -95,6 +95,16 @@ resolved by the AnsysEM adapter inside the submitted operation. Legacy v1
 remains accepted. The Context protocol belongs to the generic Runtime; active
 AEDT discovery belongs to this Bridge.
 
+When the selected project is a complete bundle, that private record also binds
+the exact bundle digest and a lightweight content-state revision to the existing
+profile, version, design, and Display identity. The opaque token carries neither
+the path nor those fingerprints. A context-driven `native.batch` may omit only
+the fixed source-identity fields: the Bridge materializes them before durable
+job submission, rejects explicit conflicts, and refuses a changed bundle. The
+Agent still declares purpose, effect, program, write/artifact scope, transaction
+policy, validation, limits, and mutation idempotency. A passing operation returns
+an opaque `continuation_context` plus a non-sensitive `continuation_state`.
+
 For a fully known one-shot mutation, the Bridge copies the frozen source to an
 owned stage, applies registered operations, saves and closes its session,
 performs fresh-reopen assertions, and non-destructively commits a distinct

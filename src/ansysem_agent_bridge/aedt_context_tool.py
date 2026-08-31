@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import agent_home, load_config
+from .project_bundle import bundle_content_summary, bundle_state_revision
 
 
 def _utc_now() -> str:
@@ -73,6 +74,26 @@ def _desktop_identity() -> dict[str, Any]:
     }
 
 
+def _content_binding(identity: dict[str, Any]) -> dict[str, Any] | None:
+    project = Path(str(identity["project"])).expanduser().resolve()
+    try:
+        summary = bundle_content_summary(project)
+        revision = bundle_state_revision(project)
+    except (OSError, ValueError):
+        return None
+    return {
+        "schema_version": 1,
+        "resource_kind": "aedt-project",
+        "bundle_sha256": summary["bundle_sha256"],
+        "state_revision": revision,
+        "project_name": str(identity["project_name"]),
+        "design": str(identity["design"]),
+        "version": identity.get("version"),
+        "profile": identity.get("profile"),
+        "display": identity.get("display"),
+    }
+
+
 def store_context(
     identity: dict[str, Any],
     *,
@@ -105,6 +126,9 @@ def store_context(
         "captured_at": _utc_now(),
         "target": identity,
     }
+    binding = _content_binding(identity)
+    if binding is not None:
+        record["binding"] = binding
     _write_private_json(path, record)
     if make_current:
         _write_private_json(root / "active.json", record)
