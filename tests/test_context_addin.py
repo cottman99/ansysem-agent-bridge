@@ -1,12 +1,31 @@
 import json
+import shutil
 import sys
 import types
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from types import SimpleNamespace
 
 import jsonschema
 
 from ansysem_agent_bridge import aedt_context_tool, context_addin
+
+
+def fake_registration(name, **kwargs):
+    project = Path(kwargs["personal_lib"]) / "Toolkits" / "Project"
+    folder = project / name
+    (folder / "Lib").mkdir(parents=True, exist_ok=True)
+    source = Path(kwargs["script_file"])
+    shutil.copy2(source, folder / "Lib" / source.name)
+    (folder / "run_pyaedt_toolkit_script.py").write_text("launcher")
+    tab = project / "TabConfig.xml"
+    root = ET.parse(tab).getroot() if tab.exists() else ET.Element("TabConfig")
+    for item in list(root):
+        if item.get("label") == name or item.get("script") == f"{name}/run_pyaedt_toolkit_script":
+            root.remove(item)
+    ET.SubElement(root, "button", label=name, script=f"{name}/run_pyaedt_toolkit_script")
+    ET.ElementTree(root).write(tab)
+    return True
 
 
 def test_context_capture_keeps_project_path_out_of_token(tmp_path, monkeypatch):
@@ -121,7 +140,7 @@ def test_context_addin_install_uses_official_pyaedt_registration(tmp_path, monke
 
     def add_script_to_menu(name, **kwargs):
         calls.append((name, kwargs))
-        return True
+        return fake_registration(name, **kwargs)
 
     import sys
 
@@ -134,8 +153,13 @@ def test_context_addin_install_uses_official_pyaedt_registration(tmp_path, monke
     icon.write_bytes(b"png")
     monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: icon)
     result = context_addin.install(tmp_path)
-    assert result["status"] == "ready"
-    assert [call[0] for call in calls] == list(context_addin.TOOLS)
+    assert result["status"] == "attention_required"
+    assert result["right_click"]["status"] == "requires_live_session"
+    assert result["verification"]["automation_status"] == "ready"
+    assert context_addin.status(tmp_path)["files_intact"]
+    assert [call[0] for call in calls] == list(context_addin.TOOL_DIRECTORIES.values())
+    assert all(" " not in call[0] for call in calls)
+    assert result["verification"]["ui_visibility"] == "not_checked"
     assert all(call[1]["panel"] == context_addin.PANEL for call in calls)
     assert all(call[1]["icon_file"] == str(icon) for call in calls)
 
@@ -147,7 +171,8 @@ def test_context_addin_status_is_bounded_to_owned_actions(tmp_path):
         (project / name).mkdir()
     (project / "TabConfig.xml").write_text("\n".join(context_addin.TOOLS), encoding="utf-8")
     result = context_addin.status(tmp_path)
-    assert result["status"] == "ready"
+    assert result["status"] == "not_installed"
+    assert not result["actions"]["Copy Agent Context"]["script_present"]
 
 
 def test_context_addin_refresh_uses_existing_owned_desktop(monkeypatch):
@@ -174,14 +199,21 @@ def test_context_addin_refresh_uses_existing_owned_desktop(monkeypatch):
 def test_context_addin_install_prefers_live_personal_lib(tmp_path, monkeypatch):
     calls = []
     refreshed = []
+    menu_set = ["Default"]
     desktop = SimpleNamespace(
         personallib=str(tmp_path / "live" / "PersonalLib"),
-        odesktop=SimpleNamespace(RefreshToolkitUI=lambda: refreshed.append(True)),
+        odesktop=SimpleNamespace(
+            RefreshToolkitUI=lambda: refreshed.append(True),
+            GetExeDir=lambda: str(tmp_path / "vendor"),
+            GetCustomMenuSet=lambda: menu_set[0],
+            GetMessages=lambda *args: [],
+            SetCustomMenuSet=lambda name: menu_set.__setitem__(0, name),
+        ),
     )
 
     def add_script_to_menu(name, **kwargs):
         calls.append((name, kwargs))
-        return True
+        return fake_registration(name, **kwargs)
 
     monkeypatch.setattr(context_addin, "_connect_desktop", lambda **kwargs: desktop)
     icon = tmp_path / "pyansys.png"
@@ -195,6 +227,8 @@ def test_context_addin_install_prefers_live_personal_lib(tmp_path, monkeypatch):
     result = context_addin.install(version="2026.1", port=50051, process_id=123)
     assert result["live_session"] is True
     assert result["refresh_required"] is False
+    assert result["status"] == "ready"
+    assert result["right_click"]["status"] == "ready"
     assert all(call[1]["personal_lib"] == desktop.personallib for call in calls)
     assert all(call[1]["odesktop"] is desktop.odesktop for call in calls)
     assert refreshed == [True]
@@ -207,3 +241,133 @@ def test_context_addin_install_rejects_partial_live_identity(tmp_path):
         assert "provided together" in str(exc)
     else:
         raise AssertionError("partial live identity was accepted")
+
+
+def test_install_upgrade_repair_preserves_unrelated_buttons_and_tracks_python(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setitem(
+        sys.modules,
+        "ansys.aedt.core.extensions.customize_automation_tab",
+        SimpleNamespace(add_script_to_menu=fake_registration),
+    )
+    monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: tmp_path / "icon.png")
+    monkeypatch.setattr(context_addin, "_remove_owned_buttons", lambda *args, **kwargs: None)
+    context_addin.install(tmp_path, profile_id="test-profile")
+    tab = tmp_path / "Toolkits" / "Project" / "TabConfig.xml"
+    tree = ET.parse(tab)
+    ET.SubElement(tree.getroot(), "button", label="User Tool")
+    tree.write(tab)
+    script = (
+        tmp_path / "Toolkits" / "Project" / "CopyAgentContext" / "Lib" / "copy_agent_context.py"
+    )
+    script.write_text("stale copied file")
+    assert context_addin.status(tmp_path)["status"] == "repair_required"
+    context_addin.reconcile_configured("test-profile")
+    assert context_addin.status(tmp_path)["automation_status"] == "ready"
+    assert context_addin.status(tmp_path)["right_click"]["status"] == "requires_live_session"
+    assert "User Tool" in tab.read_text()
+    assert len(list(ET.parse(tab).iter("button"))) == 4
+    context_addin.reconcile_configured("test-profile")
+    assert len(list(ET.parse(tab).iter("button"))) == 4
+    old = context_addin._signature()
+    monkeypatch.setattr(context_addin, "_signature", lambda: {**old, "python": "/new/python"})
+    assert context_addin.status(tmp_path)["status"] == "repair_required"
+
+
+def test_status_does_not_create_missing_personal_lib(tmp_path):
+    absent = tmp_path / "not-created"
+    assert context_addin.status(absent)["status"] == "not_installed"
+    assert not absent.exists()
+
+
+def test_uninstall_forgets_registration_so_startup_does_not_reinstall(tmp_path, monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "ansys.aedt.core.extensions.customize_automation_tab",
+        SimpleNamespace(add_script_to_menu=fake_registration, tab_map=lambda name: name),
+    )
+    monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: tmp_path / "icon.png")
+    monkeypatch.setattr(context_addin, "_remove_owned_buttons", lambda *args, **kwargs: None)
+    context_addin.install(tmp_path, profile_id="demo")
+    context_addin.uninstall(tmp_path)
+    assert context_addin.reconcile_configured("demo")["status"] == "not_configured"
+    assert not (tmp_path / "Toolkits" / "Project" / context_addin.MANIFEST).exists()
+
+
+def test_install_requires_actual_personal_lib_and_reuses_registered_root(tmp_path, monkeypatch):
+    import pytest
+
+    monkeypatch.setitem(
+        sys.modules,
+        "ansys.aedt.core.extensions.customize_automation_tab",
+        SimpleNamespace(add_script_to_menu=fake_registration),
+    )
+    monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: tmp_path / "icon.png")
+    monkeypatch.setattr(context_addin, "_remove_owned_buttons", lambda *args, **kwargs: None)
+    with pytest.raises(ValueError, match="actual AEDT PersonalLib"):
+        context_addin.install(profile_id="demo")
+    context_addin.install(tmp_path, profile_id="demo")
+    assert context_addin.install(profile_id="demo")["personal_lib"] == str(tmp_path.resolve())
+
+
+def test_status_detects_button_retargeting(tmp_path, monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "ansys.aedt.core.extensions.customize_automation_tab",
+        SimpleNamespace(add_script_to_menu=fake_registration),
+    )
+    monkeypatch.setattr(context_addin, "_pyaedt_icon", lambda: tmp_path / "icon.png")
+    context_addin.install(tmp_path)
+    tab = tmp_path / "Toolkits" / "Project" / "TabConfig.xml"
+    tree = ET.parse(tab)
+    list(tree.iter("button"))[0].set("script", "wrong/launcher")
+    tree.write(tab)
+    assert context_addin.status(tmp_path)["status"] == "repair_required"
+
+
+def test_button_bootstrap_routes_registered_profile_and_preserves_live_identity(
+    tmp_path, monkeypatch
+):
+    from ansysem_agent_bridge import profiles
+
+    monkeypatch.delenv("ANSYSEM_CONTEXT_BOOTSTRAPPED", raising=False)
+    monkeypatch.setenv("PYAEDT_PERSONAL_LIB", str(tmp_path))
+    monkeypatch.setenv("PYAEDT_PROCESS_ID", "123")
+    monkeypatch.setenv("PYAEDT_DESKTOP_PORT", "456")
+    monkeypatch.setattr(
+        aedt_context_tool,
+        "load_config",
+        lambda: {
+            "default_profile": "other",
+            "context_addins": [{"personal_lib": str(tmp_path), "profile": "selected"}],
+        },
+    )
+    calls = []
+    monkeypatch.setattr(
+        profiles, "ensure_profile_process", lambda *args, **kwargs: calls.append((args, kwargs))
+    )
+    aedt_context_tool._prepare_button_process("copy")
+    assert calls == [(("selected", ["copy"]), {"module": "ansysem_agent_bridge.aedt_context_tool"})]
+    import os
+
+    assert os.environ["PYAEDT_PROCESS_ID"] == "123"
+    assert os.environ["PYAEDT_DESKTOP_PORT"] == "456"
+
+
+def test_button_child_keeps_captured_display_over_profile_default(monkeypatch):
+    import os
+
+    monkeypatch.setenv("ANSYSEM_CONTEXT_BOOTSTRAPPED", "1")
+    monkeypatch.setenv("ANSYSEM_CONTEXT_DISPLAY", ":4.0")
+    monkeypatch.setenv("DISPLAY", ":3.0")
+    aedt_context_tool._prepare_button_process("copy")
+    assert os.environ["DISPLAY"] == ":4.0"
+
+
+def test_button_requires_session_identity_before_loading_sdk(monkeypatch):
+    import pytest
+
+    monkeypatch.delenv("PYAEDT_PROCESS_ID", raising=False)
+    with pytest.raises(RuntimeError, match="exact AEDT session"):
+        aedt_context_tool._desktop_identity()

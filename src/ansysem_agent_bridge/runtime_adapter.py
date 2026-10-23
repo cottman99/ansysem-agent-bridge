@@ -123,7 +123,16 @@ _OPERATIONS = {
 
 _CERTIFIED_WORKFLOWS = {"layout.build", "layout.solve", "model.apply"}
 _NATIVE_RUNTIME = "ansys.pyaedt.hfss3dlayout"
-_CONTEXT_IDENTITY_FIELDS = ("project", "project_name", "design", "version", "profile", "display")
+_CONTEXT_IDENTITY_FIELDS = (
+    "project",
+    "project_name",
+    "design",
+    "version",
+    "profile",
+    "display",
+    "target_kind",
+    "selection",
+)
 
 
 def _operation_class(operation: str) -> str:
@@ -1180,6 +1189,16 @@ def serve(
     *,
     profile_id: str | None = None,
 ) -> None:
+    # Upgrade the remembered, owned UI entries before serving new requests. Never
+    # launch AEDT or guess a different PersonalLib from a transport connection.
+    from .context_addin import reconcile_configured
+
+    try:
+        reconcile_configured(profile_id)
+    except (OSError, RuntimeError, ValueError, ImportError) as exc:
+        import sys
+
+        print(f"Context Add-in needs repair: {exc}", file=sys.stderr)
     imports = _runtime_imports()
     service = DurableAnsysService(jobs_path, ledger_path, profile_id=profile_id)
     imports["serve_json_lines"](input_stream, output_stream, service.handle)

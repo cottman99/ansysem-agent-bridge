@@ -103,7 +103,12 @@ def _profile_fingerprint(profile: dict[str, Any]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def ensure_profile_process(profile_id: str | None, argv: list[str]) -> dict[str, Any]:
+def ensure_profile_process(
+    profile_id: str | None,
+    argv: list[str],
+    *,
+    module: str = "ansysem_agent_bridge.cli",
+) -> dict[str, Any]:
     profile = get_profile(profile_id)
     status = profile_status(profile["profile_id"])
     if status["status"] != "ready":
@@ -136,7 +141,7 @@ def ensure_profile_process(profile_id: str | None, argv: list[str]) -> dict[str,
         python_paths + ([existing_pythonpath] if existing_pythonpath else [])
     )
     environment["ANSYSEM_ACTIVE_PROFILE"] = fingerprint
-    arguments = [str(executable), "-m", "ansysem_agent_bridge.cli", *argv]
+    arguments = [str(executable), "-m", module, *argv]
     if sys.platform == "win32":
         # Windows CRT exec does not preserve redirected Runtime protocol pipes.
         # Keep this launcher alive and explicitly inherit the original handles.

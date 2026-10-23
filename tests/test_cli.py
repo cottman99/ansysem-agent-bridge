@@ -96,3 +96,24 @@ def test_vendor_stdout_is_routed_away_from_json_contract(monkeypatch, capsys) ->
     assert code == 0
     assert json.loads(captured.out) == {"status": "ready", "result": {"ok": True}}
     assert "vendor progress" in captured.err
+
+
+def test_setup_installs_context_addin_by_default_and_can_skip(tmp_path, monkeypatch):
+    from ansysem_agent_bridge import context_addin
+
+    calls = []
+    monkeypatch.setattr(
+        context_addin,
+        "install",
+        lambda *args, **kwargs: calls.append(kwargs) or {"status": "ready"},
+    )
+    parser = cli_module.build_parser()
+    args = parser.parse_args(
+        ["setup", "--aedt-root", str(tmp_path), "--version", "2026.1", "--skip-skill"]
+    )
+    result = cli_module._setup(args)
+    assert result["context_addin"]["status"] == "ready"
+    assert len(calls) == 1
+    args.skip_context_addin = True
+    assert cli_module._setup(args)["context_addin"]["status"] == "skipped"
+    assert len(calls) == 1

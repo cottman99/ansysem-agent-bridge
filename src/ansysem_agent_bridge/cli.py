@@ -82,24 +82,43 @@ def _setup(args: argparse.Namespace) -> dict[str, Any]:
     skills = {"status": "skipped"}
     if not args.skip_skill:
         skills = install_skills("bridge", target=args.skill_target, force=args.force_skill)
+    addin = {"status": "skipped"}
+    if not args.skip_context_addin:
+        from .context_addin import install
+
+        addin = install(
+            args.personal_lib,
+            version=version if args.port or args.process_id else None,
+            port=args.port,
+            process_id=args.process_id,
+            profile_id=args.profile,
+        )
     return {
-        "status": "ready" if skills.get("status") in {"ready", "skipped"} else "attention_required",
+        "status": "ready"
+        if skills.get("status") in {"ready", "skipped"} and addin["status"] in {"ready", "skipped"}
+        else "attention_required",
         "instance": record,
         "skills": skills,
         "config": config,
         "docs": docs,
+        "context_addin": addin,
     }
 
 
 def _doctor(profile: str | None = None) -> dict[str, Any]:
+    from .context_addin import configured_status
+
     records = [item.to_dict() for item in discover_installations()]
     runtime_profile: dict[str, Any] | None = None
     selected_profile = profile or load_config().get("default_profile")
     if selected_profile:
         runtime_profile = profile_status(selected_profile)
+    addin = configured_status(selected_profile)
     return {
         "status": "ready"
-        if records and (runtime_profile is None or runtime_profile["status"] == "ready")
+        if records
+        and (runtime_profile is None or runtime_profile["status"] == "ready")
+        and addin["status"] == "ready"
         else "attention_required",
         "version": __version__,
         "python": sys.version.split()[0],
@@ -112,6 +131,7 @@ def _doctor(profile: str | None = None) -> dict[str, Any]:
         "instances": records,
         "runtime_profile": runtime_profile,
         "skills": skill_status("all"),
+        "context_addin": addin,
     }
 
 
@@ -137,7 +157,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    commands.add_parser("doctor")
+    doctor = commands.add_parser("doctor")
+    doctor.add_argument("--repair", action="store_true")
+    doctor.add_argument("--personal-lib", type=Path)
+    doctor.add_argument("--version")
+    doctor.add_argument("--port", type=int)
+    doctor.add_argument("--process-id", type=int)
 
     setup = commands.add_parser("setup")
     setup.add_argument("--aedt-root", required=True)
@@ -148,6 +173,10 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--skip-skill", action="store_true")
     setup.add_argument("--skill-target", choices=("codex", "agents"), default="codex")
     setup.add_argument("--force-skill", action="store_true")
+    setup.add_argument("--skip-context-addin", action="store_true")
+    setup.add_argument("--personal-lib", type=Path)
+    setup.add_argument("--port", type=int)
+    setup.add_argument("--process-id", type=int)
 
     instances = commands.add_parser("instances")
     instances.add_argument("action", choices=("list",))
@@ -359,6 +388,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
                 version=args.version,
                 port=args.port,
                 process_id=args.process_id,
+                profile_id=args.profile,
             )
         if args.context_addin_command == "status":
             return status(args.personal_lib)
@@ -408,6 +438,24 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             "events": store.events(args.job_id, args.after_cursor),
         }
     if args.command == "doctor":
+        if args.repair:
+            from .context_addin import install, reconcile_configured
+
+            if (
+                args.personal_lib
+                or args.port
+                or args.process_id
+                or not load_config().get("context_addins")
+            ):
+                install(
+                    args.personal_lib,
+                    version=args.version,
+                    port=args.port,
+                    process_id=args.process_id,
+                    profile_id=args.profile,
+                )
+            else:
+                reconcile_configured(args.profile)
         return _doctor(args.profile)
     if args.command == "setup":
         return _setup(args)
@@ -582,6 +630,13 @@ def main(argv: list[str] | None = None) -> int:
                 and bool(selected_profile)
                 or args.command == "context-addin"
                 and args.context_addin_command in {"install", "uninstall", "refresh"}
+                and bool(selected_profile or load_config().get("default_profile"))
+                or args.command == "setup"
+                and not args.skip_context_addin
+                and bool(selected_profile or load_config().get("default_profile"))
+                or args.command == "doctor"
+                and args.repair
+                and bool(selected_profile or load_config().get("default_profile"))
             )
             if needs_profile:
                 ensure_profile_process(selected_profile, effective_argv)
