@@ -176,7 +176,9 @@ the same report after a fresh reopen.
 In HFSS and HFSS 3D Layout, right-click a project, design, or supported tree
 folder and choose **Copy Agent Context**. For an individual setup, boundary, or
 report, **Copy Agent Context...** opens a short list from that branch; choose
-the item and click **Copy**. The copied text includes its complete hierarchy.
+one or more items and click **Copy**. Click an item to select or deselect it,
+or use **Select all** and **Clear**. The copied text includes every selected
+item's complete hierarchy.
 
 To share canvas objects, select them and use **Copy Agent Context** on the
 Automation tab. Project-tree menus copy only their node. Object names and
@@ -274,3 +276,7 @@ behavior remain identical.
 ## Native execution upgrade
 
 This breaking alpha introduces `native.execute` / `eda.native-program/v1`. Upgrade Runtime and each selected Bridge together. Each Bridge installs Runtime automatically; installing the other Bridge is optional. Reconnect Agent clients and reload the ADS addon on its next normal application launch. See [native execution architecture](docs/NATIVE_EXECUTION.md) for modes, knowledge preparation, coordination and migration.
+
+## Illustrated context guide
+
+See the [screenshots and Agent paste workflow](docs/CONTEXT_GUIDE.md), or [download the PDF](https://github.com/cottman99/ansysem-agent-bridge/releases/download/v0.3.0a3/Linux-Ansys-Guide.pdf).

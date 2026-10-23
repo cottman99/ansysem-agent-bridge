@@ -6,6 +6,7 @@ Linux AEDT 2026 R1, HFSS 3D Layout, synthetic `ContextDemoLinux` project.
 | --- | --- |
 | Right-click the design and copy | One Agent menu item; plaintext context identifies `ContextDemo` and the exact live session. |
 | Right-click a setup and choose from its branch | The picker lists `ContextSetup_A` and `ContextSetup_B`; selecting B copies its full Analysis hierarchy. |
+| Select both setups in the branch picker and copy once | Plaintext `selection.items` contains both names and full paths; fresh MCP native readback confirms both setups in the same live design. |
 | Select `Patch_B`, then click Automation / Copy Agent Context | Plaintext context contains `Patch_B`, `Layout`, and the canvas selection hierarchy. |
 | Hand each context to a fresh Runtime MCP client | Native readback confirms the project, design, selected object or selected setup. |
 
@@ -19,11 +20,17 @@ Project-tree menus copy nodes only. The documented custom XML right-click
 interface covers the project tree; a supported canvas right-click registration
 was not established. Canvas copying uses the Automation tab.
 
-Local checks: 176 Ansys tests, Ruff lint/format, clean wheel installation and CLI
+Local checks after multi-selection: 180 Ansys tests, Ruff lint/format, clean wheel installation and CLI
 startup. Installer tests cover repair, profile routing, copied-file integrity,
 button retargeting, preservation, and uninstall registration. Runtime and ADS
 are tested in their independent repositories. Release CI checks supported
 Python/platform combinations separately.
+
+The 0.3.0a3 multi-selection candidate was installed and verified on Linux from a clean
+wheel on 2026-10-24. Single-item context fields remain
+compatible; multi-item contexts keep the branch in `selection.path` and the
+explicit targets in `selection.items`. All selected paths are verified before
+the clipboard is changed, including when a later item has disappeared.
 
 This acceptance verifies context handoff and native identity readback. No solver
 or new engineering-result claim is made. Windows AEDT was excluded from this

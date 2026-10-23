@@ -1,4 +1,5 @@
 import json
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -83,6 +84,59 @@ def test_copy_cancel_preserves_clipboard(monkeypatch):
         aedt_context_tool, "_copy_text", lambda _text: pytest.fail("clipboard changed")
     )
     assert aedt_context_tool.capture_context() is None
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_tree_selection_roundtrip_preserves_every_path(desktop, monkeypatch, count):
+    identity = capture(desktop, "tree:Analysis/Item")
+    selected = identity.pop("pending_tree_choices")[:count]
+    checked = []
+    monkeypatch.setattr(
+        aedt_context_tool, "_verify_tree_items", lambda _identity, paths: checked.extend(paths)
+    )
+    identity = aedt_context_tool._apply_tree_selection(identity, selected)
+    token = EDAContext.decode(aedt_context_tool.store_context(identity))
+    assert token.selection["items"] == selected
+    assert checked == [item["path"] for item in selected]
+    assert token.selection["chosen_by"] == "user"
+    if count == 1:
+        assert token.selection["name"] == "Setup_A"
+        assert token.selection["path"] == selected[0]["path"]
+    else:
+        assert "name" not in token.selection
+        assert token.selection["path"] == ["工程", "设计", "Analysis"]
+
+
+@pytest.mark.parametrize("missing_second", [False, True])
+def test_verifies_all_tree_items_with_one_connection(desktop, monkeypatch, missing_second):
+    identity = capture(desktop, "tree:Analysis/Item")
+    selected = identity.pop("pending_tree_choices")
+    if missing_second:
+        desktop.GetActiveProject().GetActiveDesign().children["Analysis"].children.pop("Setup_B")
+    connections = []
+    releases = []
+    desktop.GetProjects = lambda: [desktop.GetActiveProject()]
+
+    def connect(**kwargs):
+        connections.append(kwargs)
+        return SimpleNamespace(
+            odesktop=desktop, release_desktop=lambda **kwargs: releases.append(kwargs)
+        )
+
+    core = SimpleNamespace(Desktop=connect)
+    aedt = SimpleNamespace(core=core)
+    monkeypatch.setitem(sys.modules, "ansys", SimpleNamespace(aedt=aedt))
+    monkeypatch.setitem(sys.modules, "ansys.aedt", aedt)
+    monkeypatch.setitem(sys.modules, "ansys.aedt.core", core)
+    if missing_second:
+        with pytest.raises(ValueError, match="selected item has changed"):
+            aedt_context_tool._apply_tree_selection(identity, selected)
+        assert "items" not in identity["selection"]
+    else:
+        aedt_context_tool._apply_tree_selection(identity, selected)
+        assert len(identity["selection"]["items"]) == 2
+    assert len(connections) == 1
+    assert releases == [{"close_projects": False, "close_on_exit": False}]
 
 
 def test_context_keeps_distinct_selection_snapshots_and_project_scope(desktop, monkeypatch):
