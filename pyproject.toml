@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ansysem-agent-bridge"
-version = "0.3.0a1"
+version = "0.3.0a2"
 description = "Unofficial local-first agent bridge for Ansys Electronics Desktop"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["eda-bridge-runtime>=0.2.0a1,<0.3", "beautifulsoup4>=4.12,<5", "html2text>=2024.2.26"]
+dependencies = ["eda-bridge-runtime>=0.2.0a2,<0.3", "beautifulsoup4>=4.12,<5", "html2text>=2024.2.26"]
 
 [project.optional-dependencies]
 test = ["jsonschema>=4.23,<5", "pytest>=8,<10", "ruff>=0.12,<1"]
@@ -48,3 +48,6 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/ansysem_agent_bridge/aedt_addin_assets/native_selection.py" = ["UP"]

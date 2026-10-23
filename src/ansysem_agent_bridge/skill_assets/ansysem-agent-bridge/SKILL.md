@@ -18,6 +18,20 @@ HFSS 3D Layout projects include the `.aedt` and matching `.aedb` bundle. Select 
 exact runtime profile when it supplies the Python environment and library paths.
 Never silently choose the latest version or a foreground project.
 
+The AEDT project-tree menus and Automation tab copy readable `EDA_CONTEXT:v2:`
+JSON. Pass the complete text unchanged as `context`. Read `target_kind` and
+`selection`: a project, design, canvas selection, folder, and chosen tree item
+have different scopes. Preserve the copied object names and tree path; never
+silently broaden a selected item to the whole design. The native menu fixes the
+target at click time. Individual tree items are chosen explicitly from their
+branch because the menu callback does not provide an item name.
+For setup, install the buttons in the live session's reported PersonalLib or an
+explicit directory. `doctor --repair` refreshes registered add-ins after upgrades;
+`runtime serve` also repairs them at startup. A successful package install alone
+does not prove that the native buttons are installed or usable. First-time
+right-click activation needs an exact live version, port, and process ID.
+Use `context-addin refresh` to reload menu files in an already open session.
+
 | Runtime | Modes | Official object |
 | --- | --- | --- |
 | `ansys.pyaedt.hfss3dlayout` | live, background | PyAEDT `Hfss3dLayout` |

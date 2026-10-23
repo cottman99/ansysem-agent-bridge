@@ -197,7 +197,14 @@ def authorize_captured_aedt_session(
         raise PermissionError("AnsysEM Context project identity does not match")
     if str(target.get("version") or "") != str(version):
         raise PermissionError("AnsysEM Context version identity does not match")
-    if str(target.get("design") or "") != str(design):
+    design_matches = str(target.get("design") or "") == str(design)
+    if target.get("design") is None and target.get("target_kind") in (
+        "project",
+        "tree-folder",
+        "tree-item",
+    ):
+        design_matches = bool(design) and design in target.get("designs", [])
+    if not design_matches:
         raise PermissionError("AnsysEM Context design identity does not match")
     pid = int(target.get("process_id") or 0)
     port = int(target.get("port") or 0)

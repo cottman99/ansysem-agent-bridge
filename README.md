@@ -98,6 +98,7 @@ Configure one exact AEDT installation instead of silently selecting the newest:
 ansysem-agent --pretty setup \
   --aedt-root /path/to/AnsysEM/v261 \
   --version 2026.1 \
+  --personal-lib /path/to/your/AEDT/PersonalLib \
   --docs-root /path/to/private/local/docs
 ```
 
@@ -172,14 +173,49 @@ the same report after a fresh reopen.
 
 ## The AEDT Context add-in
 
-The lightweight Automation-tab add-in provides:
+In HFSS and HFSS 3D Layout, right-click a project, design, or supported tree
+folder and choose **Copy Agent Context**. For an individual setup, boundary, or
+report, **Copy Agent Context...** opens a short list from that branch; choose
+the item and click **Copy**. The copied text includes its complete hierarchy.
+
+To share canvas objects, select them and use **Copy Agent Context** on the
+Automation tab. Project-tree menus copy only their node. Object names and
+hierarchy come from the editor's selection API. AEDT's
+documented XML menu extension covers the project tree; it does not add a command
+to the canvas's own right-click menu.
+
+The Automation tab also provides:
 
 - **Use Current Design with Agent**
 - **Copy Agent Context**
 - **Agent Connection Status**
 
-The copied Context carries a secret-free host-local locator, software identity,
-display label, design target, freshness, and capability hints. Exact private
+Install and activate the menus in the exact running session:
+
+```bash
+ansysem-agent --profile <profile> context-addin install --version <version> --port <port> --process-id <pid>
+```
+
+The installer obtains the actual PersonalLib and creates a separate, additive
+menu set. It preserves the user's existing menu configuration and checks AEDT's
+100-command limit. A fresh installation without a live session reports that
+right-click menu activation still requires a session. Previously configured directories are remembered;
+the installer does not guess a different PersonalLib. Use `--skip-context-addin`
+with `setup` for a deliberately headless installation.
+
+After a package upgrade, `runtime serve` refreshes previously registered add-ins.
+`doctor` reports missing or outdated files; `doctor --repair` refreshes them
+explicitly. Each replacement keeps a private backup. An already open AEDT window
+may need `context-addin refresh` with its exact version, port, and process ID to
+reload the menus. Uninstalling the add-in removes its upgrade registration.
+Installation status checks files and registrations; actual button visibility and
+clipboard behavior are verified separately in the live application.
+
+The copied Context is readable JSON prefixed with `EDA_CONTEXT:v2:`. Project name,
+design, selected objects or tree path, software version, session, freshness,
+and capability hints are plain text.
+Its checksum detects accidental edits; it is not encryption. Older Base64 Contexts
+remain readable. Exact private
 paths remain on the AEDT host. Context selects a target; it never grants
 permission to mutate or solve.
 
