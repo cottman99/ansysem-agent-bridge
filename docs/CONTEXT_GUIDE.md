@@ -1,6 +1,6 @@
 # Copy Ansys context
 
-[Download the illustrated guide (PDF)](context-guide.pdf).
+[Download the illustrated guide (PDF)](https://github.com/cottman99/ansysem-agent-bridge/releases/download/v0.3.0a3/Linux-Ansys-Guide.pdf).
 
 Select multiple items by clicking each row, then click **Copy**. **Select all** and **Clear** are also available. Each copied item retains its full project/design path.
 

@@ -279,4 +279,4 @@ This breaking alpha introduces `native.execute` / `eda.native-program/v1`. Upgra
 
 ## Illustrated context guide
 
-See the [screenshots and Agent paste workflow](docs/CONTEXT_GUIDE.md), or [download the PDF](docs/context-guide.pdf).
+See the [screenshots and Agent paste workflow](docs/CONTEXT_GUIDE.md), or [download the PDF](https://github.com/cottman99/ansysem-agent-bridge/releases/download/v0.3.0a3/Linux-Ansys-Guide.pdf).
