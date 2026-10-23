@@ -19,6 +19,12 @@
 
 ![An RF engineer goes from substrate stackup and ports through an EM solve to an S-parameter result](docs/assets/readme/ansysem-engineer-workflow-v3.png)
 
+## Use live AEDT, background AEDT and offline PyEDB through one path
+
+AnsysEM Bridge 0.3.0a1 separates SDK choice from execution mode. Windows and Linux acceptance saved and reopened a 2mm AEDT variable and a 3mm PyEDB variable; live AEDT read back 4mm in the bound session. Windows configured Python launches preserve the Runtime protocol pipes.
+
+[October release acceptance](https://github.com/cottman99/eda-bridge-runtime/blob/v0.2.0a1/docs/VALIDATION_2026-10-23_NATIVE_CORE.md) · [Native execution and migration](docs/NATIVE_EXECUTION.md). The circuit, solver and timing examples below are the separately dated historical acceptance baselines.
+
 ## Finish an HFSS 3D Layout build-to-report task
 
 > “Start from an empty project, build this stackup and trace, place two edge
@@ -66,7 +72,7 @@ in **12 ms** with zero duplicate objects; fingerprint-checked patch rollback
 took **204 ms** and verified that only the named rectangle was absent. Warm
 live-edit calls completed in **296–453 ms**.
 
-These are bounded observations from the disposable `0.2.0a12` acceptance on
+These are bounded observations from the disposable `0.3.0a1` acceptance on
 2026-08-31, not a general latency guarantee. Codex and Pi Agent independently
 passed the same create, replay, and rollback contract. See the
 [sanitized live-edit evidence](docs/VALIDATION_2026-08-31_LIVE_EDIT.md).
@@ -199,7 +205,7 @@ behavior remain identical.
 
 - no implicit newest-version or foreground-window guessing;
 - no claim based on a lone `.aedt` file when an HFSS 3D Layout bundle is required;
-- no arbitrary Python in the default public operation surface;
+- official Python uses exact targets, Runtime admission and explicit validation;
 - no implicit save or discard for supervised live edits; unattended durable
   mutations protect the source and require fresh reopen;
 - no permanent version for each candidate attempt;
@@ -228,3 +234,7 @@ behavior remain identical.
 - [Security policy](SECURITY.md)
 - [Sanitized Linux acceptance](docs/VALIDATION_AEDT_2026R1_LINUX.md)
 - [Sanitized HFSS 3D Layout build-to-report acceptance](docs/VALIDATION_2026-08-30_HFSS3DLAYOUT_WORKFLOW.md)
+
+## Native execution upgrade
+
+This breaking alpha introduces `native.execute` / `eda.native-program/v1`. Upgrade Runtime and each selected Bridge together. Each Bridge installs Runtime automatically; installing the other Bridge is optional. Reconnect Agent clients and reload the ADS addon on its next normal application launch. See [native execution architecture](docs/NATIVE_EXECUTION.md) for modes, knowledge preparation, coordination and migration.

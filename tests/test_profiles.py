@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
+from eda_bridge_runtime import RequestEnvelope
+from eda_bridge_runtime.transport import PersistentStdioTransport
 
 from ansysem_agent_bridge.config import remove_profile, upsert_profile
 from ansysem_agent_bridge.profiles import (
@@ -59,11 +61,12 @@ def test_profile_rejects_wrong_python(tmp_path: Path, monkeypatch) -> None:
         apply_profile("wrong")
 
 
-def test_profile_launcher_reexecs_exact_cli_with_prelaunch_environment(
+def test_posix_profile_launcher_reexecs_exact_cli_with_prelaunch_environment(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setenv("ANSYSEM_AGENT_HOME", str(tmp_path / "agent-home"))
     monkeypatch.delenv("ANSYSEM_ACTIVE_PROFILE", raising=False)
+    monkeypatch.setattr(sys, "platform", "linux")
     module_path = tmp_path / "modules"
     module_path.mkdir()
     upsert_profile(
@@ -102,6 +105,48 @@ def test_profile_config_is_backward_compatible(tmp_path: Path, monkeypatch) -> N
     )
     with pytest.raises(ValueError, match="No runtime profile"):
         get_profile()
+
+
+def test_profile_launch_preserves_runtime_stdio(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("ANSYSEM_AGENT_HOME", str(tmp_path / "agent-home"))
+    monkeypatch.setenv("EDA_RUNTIME_HOME", str(tmp_path / "runtime-home"))
+    monkeypatch.delenv("ANSYSEM_ACTIVE_PROFILE", raising=False)
+    upsert_profile(
+        {
+            "profile_id": "stdio-test",
+            "python_executable": sys.executable,
+            "display": ":99",
+            "environment": {},
+            "prepend_environment": {},
+            "python_paths": [],
+        }
+    )
+    # The real launcher must retain the pipes through its controlled relaunch.
+    transport = PersistentStdioTransport(
+        [
+            sys.executable,
+            "-m",
+            "ansysem_agent_bridge.cli",
+            "--profile",
+            "stdio-test",
+            "runtime",
+            "serve",
+        ],
+        timeout_seconds=15,
+    )
+    try:
+        response = transport.request(
+            RequestEnvelope(
+                purpose="Verify profile launch preserves the Runtime handshake and response",
+                target={"eda": "ansys-electronics-desktop"},
+                operation="runtime.capabilities",
+                payload={"mutating": False},
+            )
+        )
+        assert response.status == "passed"
+        assert response.result["data"]["capabilities"]["origin_id"]
+    finally:
+        transport.close()
 
 
 def test_remove_profile_and_assignment_validation(tmp_path: Path, monkeypatch) -> None:

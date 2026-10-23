@@ -17,8 +17,7 @@ must not launch AEDT.
 ## Query
 
 Submit a version-bound `docs.query` through Runtime's `eda.read` lane when the
-request already names the API, symbol, or task. Discover capabilities once if
-this MCP process has not cached the documentation operation metadata. Use
+request already names the API, symbol, or task. Runtime obtains operation metadata when needed. Use
 `docs.status` only for setup, missing-index, or version ambiguity. The
 equivalent direct CLI is:
 
@@ -64,3 +63,7 @@ model prerequisites, and version differences before recommending a fallback.
   correctness.
 - Route live validation to `$ansysem-agent-bridge` and report the remaining
   gate explicitly.
+
+## Automatic preparation
+
+The first query prepares supported local sources when Markdown is absent. Source changes refresh the private version partition under a single build lock. Existing Markdown is preserved. Inspect ready, partial, building or source-missing state without interpreting it as execution permission. Missing documentation does not disable native execution. Official examples, installed SDK signatures/docstrings and bounded native observations can supply additional evidence; source code is never imported merely to index it.

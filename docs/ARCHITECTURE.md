@@ -3,65 +3,63 @@
 ## Product boundary
 
 AnsysEM Agent Bridge is a local control plane between a general-purpose Agent
-and one explicitly selected Ansys Electronics Desktop runtime. It binds intent
-to an exact Context, selects the version-matched official runtime or a
-certified workflow, and
+and one explicitly selected Ansys Electronics Desktop runtime. The Agent binds
+engineering intent to an exact Context and chooses a route; deterministic Bridge
+contracts verify identity, safety facts, execution, and evidence. The Bridge
+selects the exact official runtime or a compatible compiled implementation and
 returns machine-readable identity, readback, validation, artifacts, warnings,
 and safe next actions.
 
 The package also carries an independent Bootstrap Experience Library. It gives
 a new Agent a small version-scoped starting point, but is neither execution
-logic nor durable engineering memory. Official docs remain authoritative;
-missing experience only degrades guidance.
+logic nor durable engineering memory. Official docs remain authoritative when
+experience is missing, version-different, incomplete, or contradicted; missing
+experience only degrades guidance.
 
 The Bridge is useful without a Harness. A Harness may later compose workflows,
 approvals, durable engineering memory, budgets, and promotion policy around the
 same contracts. Skills teach an Agent when and how to call the Bridge; they do
 not contain transport logic or vendor-specific implementation code.
 
-```text
-Agent / CLI caller
-       |
-       | stable JSON contracts
-       v
-intent gate -> target resolver -> capability registry -> semantic operation
-                                                        |
-                    +----------------+-------------------+----------------+
-                    |                |                   |                |
-              local docs      static bundle       PyEDB/PyAEDT      native AEDT
-                    |                |                   |                |
-                    +----------------+-------------------+----------------+
-                                                        |
-                                      readback + validation + artifacts
-```
+The shared semantic route is defined once by the
+[EDA Runtime capability model](https://github.com/cottman99/eda-bridge-runtime/blob/main/docs/CAPABILITY_MODEL.md).
+This Bridge contributes only Ansys-specific contracts: AEDT installation and
+Display identity, project bundles, PyAEDT/PyEDB/native execution, session and
+candidate lifecycle, and Ansys readback. Its ordinary operation catalogue omits
+certified workflows; an exact `experience.get` result supplies a compiled
+implementation binding when that asset owns one.
+Given exact AEDT version, profile, and primary operation metadata, that call may
+resolve one unique asset directly. Zero or multiple matches fail explicitly;
+the deterministic check does not replace Agent engineering judgment.
+
+Some advisory assets own an `experience_recipe` instead of a compiled public
+operation. These helpers are returned only by `experience.get` for that exact
+asset id and compile already-decided engineering data into an existing
+`model.apply` or `native.execute` contract. They are absent from ordinary
+operation discovery, do not declare capability coverage, and never replace the
+Agent's connectivity, geometry, material, or solver judgment. Assets narrower
+than one operation are found by a specific intent/tag query and selected
+semantically by the Agent; no software semantic gate is added.
 
 ## Top-level rules
 
 1. **Identity before action.** Host, release, display, process/session,
    project bundle, project, design, editor, and lane form one target tuple.
-2. **Capability before probing.** `declared`, `compatible`, `available`,
-   `healthy`, and `authorized` are independent facts. One missing search hit or
-   failed call never proves that no API exists.
-3. **Official API reach before wrapper growth.** Use version-matched docs and a
-   governed PyAEDT/PyEDB/native batch for new EDA functionality. Stable semantic
-   operations are certified workflows or infrastructure, not a replacement API.
-   A certified workflow is only an asset-bound compiled shortcut; asset
-   id/version/hash and applicability are verified before it becomes preferred.
-4. **Readback before success.** A returned success boolean is insufficient.
+2. **Readback before success.** A returned success boolean is insufficient.
    Results include the selected identity and operation-specific state or an
    artifact hash.
-5. **Evidence is typed.** Documentation, file, live-editor, geometry,
+3. **Evidence is typed.** Documentation, file, live-editor, geometry,
    electrical, solver-input, convergence, and numerical evidence are not
    interchangeable.
-6. **Lifecycle is owned.** A command closes only a session it created. It never
+4. **Lifecycle is owned.** A command closes only a session it created. It never
    force-kills an unverified process or silently discards another user's work.
-7. **Attempts are not revisions.** Iterative work stays in one candidate
+5. **Attempts are not revisions.** Iterative work stays in one candidate
    workspace. Only explicit clean-replay promotion creates a permanent output.
-8. **Desired state before retry.** Registered adapters first detect an already
+6. **Desired state before retry.** Registered adapters first detect an already
    satisfied request; an identical patch never repeats an EDA mutation.
-9. **Assurance matches the gate.** Reconcile uses scoped persisted-state
+7. **Assurance matches the gate.** Reconcile uses scoped persisted-state
    assertions; promotion performs the full source-to-output assurance gate once.
-10. **Compact by default.** Runtime snapshots are revisioned; operations return
+8. **Compact by default.** Runtime snapshots are revisioned; operations return
    counts and hashes instead of repeating full trees or logs.
 
 ## Route selection
@@ -72,12 +70,15 @@ The route is selected by required semantics, not convenience:
 | --- | --- | --- |
 | Find a documented symbol or limitation | version-matched local docs | Evidence remains documentation-only |
 | Check files, hashes, or bundle completeness | static host adapter | Never claim live AEDT state |
-| Read or edit EDB concepts offline | eligible compiled shortcut or governed PyEDB batch | Require complete EDB and post-operation readback |
-| Read or edit an AEDT design | eligible compiled shortcut or governed PyAEDT/native batch | Require exact runtime identity and health |
+| Read or edit EDB concepts offline | governed PyEDB batch or experience-referenced shortcut | Require complete EDB and post-operation readback |
+| Read or edit a GUI-selected AEDT design | same-session PyAEDT/gRPC/native API | Keep the change visible in the selected GUI and require exact session identity |
+| Run isolated, long, or high-risk AEDT work | governed background PyAEDT/native program or experience-referenced shortcut | Never write the same project concurrently with Live |
 | Perform a native operation missing in PyAEDT | narrow native AEDT adapter | Preserve native identifiers and release tests |
 | Assist with a genuinely UI-only action | bounded visual assistance | Only after API lanes are disproved; independent readback is mandatory |
 
 GUI automation is therefore an explicit last lane, not an automatic fallback.
+Operation descriptors enumerate deterministic callable contracts, not the full
+reach of AEDT, PyAEDT, or PyEDB.
 
 ## Request lifecycle
 
@@ -98,7 +99,7 @@ AEDT discovery belongs to this Bridge.
 When the selected project is a complete bundle, that private record also binds
 the exact bundle digest and a lightweight content-state revision to the existing
 profile, version, design, and Display identity. The opaque token carries neither
-the path nor those fingerprints. A context-driven `native.batch` may omit only
+the path nor those fingerprints. A context-driven `native.execute` may omit only
 the fixed source-identity fields: the Bridge materializes them before durable
 job submission, rejects explicit conflicts, and refuses a changed bundle. The
 Agent still declares purpose, effect, program, write/artifact scope, transaction

@@ -12,6 +12,12 @@
 
 ![射频工程师从衬底叠层和端口出发，经过电磁求解得到 S 参数结果](docs/assets/readme/ansysem-engineer-workflow-v3.png)
 
+## 统一使用现场 AEDT、后台 AEDT 和离线 PyEDB
+
+AnsysEM Bridge 0.3.0a1 将 SDK 选择与执行模式分开。Windows/Linux 均完成 AEDT 2mm 和 PyEDB 3mm 变量的保存重开验证，现场 AEDT 会话读回 4mm；Windows 配置环境启动也已验证协议连接。
+
+[10 月版本验收](https://github.com/cottman99/eda-bridge-runtime/blob/v0.2.0a1/docs/VALIDATION_2026-10-23_NATIVE_CORE.md) · [执行方式与迁移](docs/NATIVE_EXECUTION.md)。下方电路、求解和耗时示例保留各自标注日期的历史验收结果。
+
 ## 一段对话完成 HFSS 3D Layout 建模到报告
 
 > “从空白工程开始，建立这个叠层和走线，放置两个边缘端口，求解1–5 GHz，
@@ -56,7 +62,7 @@ AEDT 2026 R1 验收复用了同一个已打开图形进程。一个类型化 Pat
 针对该 Patch 的回滚用时 **204 ms**，并验证只有该矩形消失。暖态实时修改
 完成于 **296–453 ms**。
 
-这些是 2026-08-31 在可丢弃工程中对 `0.2.0a12` 的受控观察，不是普遍延迟
+这些是 2026-08-31 在可丢弃工程中对 `0.3.0a1` 的受控观察，不是普遍延迟
 保证。Codex 与 Pi Agent 均独立通过相同的创建、回放和回滚合同。详见
 [脱敏实时编辑证据](docs/VALIDATION_2026-08-31_LIVE_EDIT.md)。
 
@@ -172,7 +178,7 @@ AEDT 同机时也注册本机连接并经过 Runtime，从而保持相同的重�
 
 - 不静默选择最新版本，不猜前台窗口；
 - HFSS 3D Layout 需要完整 Bundle 时，不凭单个 `.aedt` 文件宣称完整；
-- 默认公开接口不允许任意 Python；
+- 官方 Python 通过精确目标、Runtime 协调和显式验证执行；
 - 受监督实时修改不隐式保存或放弃；无人值守持久修改保护源工程并要求全新重开；
 - 候选尝试不创建永久交付版本；
 - 不使用盲目 GUI 坐标，不以截图代替成功；

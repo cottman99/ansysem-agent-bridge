@@ -27,7 +27,9 @@ def docs_status(root: str | Path) -> dict[str, Any]:
     )
     manifest = next((item for item in manifest_candidates if item.is_file()), None)
     return {
-        "status": "ready" if path.is_dir() and markdown.is_dir() else "missing",
+        "status": "ready"
+        if path.is_dir() and any(markdown.rglob("*.md"))
+        else ("unbuilt" if path.is_dir() else "source_missing"),
         "root": str(path),
         "markdown_root": str(markdown),
         "manifest": str(manifest) if manifest else None,
@@ -162,12 +164,20 @@ def _content_matches(
 
 
 def query_docs(
-    root: str | Path, query: str, *, module: str | None = None, limit: int = 6
+    root: str | Path,
+    query: str,
+    *,
+    module: str | None = None,
+    limit: int = 6,
+    version: str | None = None,
 ) -> dict[str, Any]:
-    path = Path(root).expanduser().resolve()
+    from .docs_ingest import ensure_docs
+
+    prepared = ensure_docs(root, version=version)
+    path = Path(prepared.get("root", root)).expanduser().resolve()
     status = docs_status(path)
     if status["status"] != "ready":
-        raise ValueError(f"Documentation root is unavailable: {path}")
+        return {**prepared, "results": [], "result_count": 0}
     terms = _terms(query)
     if not terms:
         raise ValueError("Documentation query must include searchable terms.")
@@ -196,6 +206,10 @@ def query_docs(
                     "module": record.get("module"),
                     "title": str(title or "unknown"),
                     "source_ref": _source_ref(path, source),
+                    "source_kind": record.get("source_kind", "official_document"),
+                    "source_version": record.get("source_version", version),
+                    "source_sha256": record.get("source_sha256"),
+                    "runtime_verified": False,
                     "validation_status": "local_source_match",
                 },
             )
@@ -221,14 +235,23 @@ def query_docs(
         else "local-index",
         "result_count": len(results),
         "results": results,
+        "preparation": prepared,
         "evidence_boundary": "Documentation matches are not runtime execution evidence.",
     }
 
 
 def get_doc(
-    root: str | Path, source_ref: str, *, focus: str | None = None, max_chars: int = 4000
+    root: str | Path,
+    source_ref: str,
+    *,
+    focus: str | None = None,
+    max_chars: int = 4000,
+    version: str | None = None,
 ) -> dict[str, Any]:
-    path = Path(root).expanduser().resolve()
+    from .docs_ingest import ensure_docs
+
+    prepared = ensure_docs(root, version=version)
+    path = Path(prepared.get("root", root)).expanduser().resolve()
     candidate = (path / source_ref).resolve()
     try:
         candidate.relative_to(path)

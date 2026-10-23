@@ -14,10 +14,10 @@ generalized.
 | `session.launch/release` | Bridge infrastructure | Keep; Runtime-owned AEDT lifecycle is core |
 | `workspace.begin/status/reconcile/rollback/abort/promote` | Bridge infrastructure | Keep and generalize; candidate continuity, checkpoints, replay, and promotion are reusable transaction mechanics |
 | `layout.export_image` | Bridge infrastructure / artifact readback | Keep as a native evidence mechanism, not as layout feature coverage |
-| `native.batch` | Generic native execution | Primary official PyAEDT extension path with declared scope, timeout, staging, fresh reopen, and promotion |
-| `layout.build` | Asset-bound compiled shortcut | Keep as the accepted bounded build macro while its asset binding and runtime match; do not add one wrapper per primitive or port family |
-| `layout.solve` | Asset-bound compiled shortcut | Keep as the accepted explicit-sweep macro; extract generic job, artifact, numeric, and fresh-reopen validation |
-| `model.apply` and its bondwire/property recipes | Asset-bound compiled shortcut | Keep compatible while its asset binding matches; extract common transaction mechanics rather than growing vocabulary |
+| `native.execute` | Generic native execution | Primary official PyAEDT extension path with declared scope, timeout, staging, fresh reopen, and promotion |
+| `layout.build` | Compatibility shortcut | Keep callable only for experience-referenced background recipes; its mini geometry vocabulary is not the default extension path and must not grow |
+| `layout.solve` | Provisional compiled shortcut | Keep compatible while its experience binding and same-task advantage remain evidenced; extract generic job, artifact, numeric, and fresh-reopen validation |
+| `model.apply` and its bondwire/property recipes | Compatibility shortcut | Keep callable for bound experience assets; use governed native execution for new properties or objects rather than growing the wrapper vocabulary |
 | internal live probes and synthetic geometry checks | Acceptance probe | Keep behind the public operations that need them; do not count probes as product breadth |
 
 ## Coverage status after the audit
@@ -28,8 +28,10 @@ generalized.
   governed general contract; PyEDB and other AEDT products remain future lanes.
 - **Generic execution coverage:** observe and staged mutation include source
   fingerprint, timeout, fresh reopen, validation, and promotion on supported
-  POSIX hosts; this is not a hostile-code sandbox.
+  Windows and Linux hosts; this is not a hostile-code sandbox.
 - **Default supported coverage:** infrastructure plus the maintained certified
   HFSS 3D Layout workflows.
 - **Validated workflow coverage:** the retained build, solve, transaction,
   bondwire, lifecycle, and workspace acceptances only.
+
+The native backend registry now distinguishes live/background HFSS 3D Layout and offline PyEDB. Process supervision is portable and does not depend on POSIX signals. Real EDA acceptance is recorded per platform and mode; portability alone does not prove every installation.

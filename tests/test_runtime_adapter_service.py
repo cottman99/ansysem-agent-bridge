@@ -23,6 +23,27 @@ def _request(**overrides):
     return RequestEnvelope(**values)
 
 
+def test_partial_sdk_knowledge_is_a_completed_read_not_an_execution_denial(tmp_path, monkeypatch):
+    from ansysem_agent_bridge import sdk_docs
+
+    monkeypatch.setattr(
+        sdk_docs,
+        "describe",
+        lambda *_args, **_kwargs: {
+            "status": "partial",
+            "results": [{"signature": "def new_method()"}],
+            "execution_available": True,
+        },
+    )
+    runtime = runtime_adapter.build_runtime(tmp_path / "ledger.sqlite3")
+    result = runtime.execute(
+        _request(operation="docs.symbol", payload={"mutating": False, "query": "new_method"})
+    )
+    assert result.status == "passed"
+    assert result.result["data"]["bridge"]["status"] == "partial"
+    assert result.result["data"]["bridge"]["execution_available"]
+
+
 def test_runtime_adapter_requires_optional_runtime(monkeypatch):
     real_import = __import__
 
@@ -192,19 +213,19 @@ def test_workspace_revision_is_forwarded_as_keyword_only(monkeypatch, operation,
     [
         ("layout.build", "execute_layout_build_plan"),
         ("layout.solve", "execute_layout_solve_plan"),
-        ("native.batch", "execute_native_batch"),
+        ("native.execute", "execute_native_program"),
     ],
 )
 def test_layout_workflow_forwards_only_typed_plan(monkeypatch, operation, function_name):
     observed = {}
 
-    def fake_execute(plan, *, redact_paths):
+    def fake_execute(plan, *, redact_paths, **kwargs):
         observed.update(plan=plan, redact_paths=redact_paths)
         return {"status": "passed"}
 
     monkeypatch.setattr(runtime_adapter, function_name, fake_execute)
     plan = {"schema_version": "synthetic/v1"}
-    if operation != "native.batch":
+    if operation != "native.execute":
         plan["version"] = "2026.1"
     request = SimpleNamespace(
         operation=operation,
@@ -214,13 +235,15 @@ def test_layout_workflow_forwards_only_typed_plan(monkeypatch, operation, functi
 
     result = runtime_adapter._AnsysAdapterBase()._dispatch(request)
     assert result["status"] == "passed"
-    if operation != "native.batch":
+    if operation != "native.execute":
         assert result["compiled_shortcut"]["implements_asset_id"]
     assert observed == {"plan": plan, "redact_paths": True}
 
 
 def test_context_native_dispatch_returns_reusable_or_rotated_content_bound_context(monkeypatch):
     plan = {
+        "runtime": "ansys.pyaedt.hfss3dlayout",
+        "mode": "background",
         "effect": "observe",
         "scope": {
             "read_paths": ["synthetic.aedt"],
@@ -230,12 +253,12 @@ def test_context_native_dispatch_returns_reusable_or_rotated_content_bound_conte
     }
     monkeypatch.setattr(
         runtime_adapter,
-        "execute_native_batch",
-        lambda _plan, *, redact_paths: {"status": "passed", "source_preserved": True},
+        "execute_native_program",
+        lambda _plan, *, redact_paths, **kwargs: {"status": "passed", "source_preserved": True},
     )
     monkeypatch.setattr(runtime_adapter, "store_context", lambda *_args, **_kwargs: "opaque-next")
     request = SimpleNamespace(
-        operation="native.batch",
+        operation="native.execute",
         payload={"plan": plan, "redact_paths": True},
         target={
             "context_id": "ctx_synthetic",
@@ -254,7 +277,7 @@ def test_context_native_dispatch_returns_reusable_or_rotated_content_bound_conte
         "target_kind": "design",
     }
 
-    plan["effect"] = "staged_mutation"
+    plan["effect"] = "mutate"
     plan["scope"]["write_paths"] = ["output.aedt"]
     monkeypatch.setattr(runtime_adapter, "store_context", lambda *_args, **_kwargs: "opaque-output")
     mutated = runtime_adapter._AnsysAdapterBase()._dispatch(request)
@@ -461,7 +484,8 @@ def test_service_materializes_context_bound_native_identity_before_job(tmp_path,
         ),
     )
     plan = {
-        "schema_version": "eda.native-batch/v1",
+        "schema_version": "eda.native-program/v1",
+        "mode": "background",
         "effect": "observe",
         "program": {
             "language": "python",
@@ -479,9 +503,10 @@ def test_service_materializes_context_bound_native_identity_before_job(tmp_path,
     }
     response = service.handle(
         _request(
-            operation="native.batch",
+            operation="native.execute",
             target={"eda": "ansys-electronics-desktop", "context": token},
-            payload={"mutating": False, "plan": plan},
+            payload={"mutating": True, "plan": plan},
+            idempotency_key="native-test",
         )
     )
     stored = service.store.request(response.result["job"]["job_id"])
@@ -522,7 +547,7 @@ def test_service_rejects_changed_context_content_before_job(tmp_path, monkeypatc
     with pytest.raises(ValueError, match="content state changed"):
         service.handle(
             _request(
-                operation="native.batch",
+                operation="native.execute",
                 target={"eda": "ansys-electronics-desktop", "context": token},
                 payload={"mutating": False, "plan": {}},
             )
@@ -539,7 +564,7 @@ def test_context_native_materialization_rejects_explicit_identity_and_fingerprin
     binding = {"bundle_sha256": "a" * 64}
     plan = {
         "runtime": "ansys.pyaedt.hfss3dlayout",
-        "effect": "staged_mutation",
+        "effect": "mutate",
         "scope": {
             "resource_kind": "aedt-project",
             "selectors": {"design": "OtherDesign"},
@@ -696,12 +721,36 @@ def test_service_returns_capabilities_without_submitting_a_job(tmp_path):
     assert {"docs.status", "docs.query", "docs.get", "layout.build", "layout.solve"}.issubset(by_id)
     assert by_id["layout.build"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-build/v1")
     assert by_id["layout.solve"]["input_schema"]["plan_schema"] == ("ansysem.hfss3dlayout-solve/v1")
-    assert by_id["native.batch"]["operation_class"] == "generic-native-execution"
-    assert by_id["native.batch"]["input_schema"]["plan_schema"] == "eda.native-batch/v1"
-    assert by_id["native.batch"]["accepts_context"] is True
-    assert by_id["native.batch"]["returns_context"] is True
-    assert "plan.scope.read_paths" in by_id["native.batch"]["input_schema"]["derived_fields"]
-    assert "plan.effect" in by_id["native.batch"]["input_schema"]["agent_required"]
+    assert by_id["native.execute"]["operation_class"] == "generic-native-execution"
+    assert by_id["native.execute"]["input_schema"]["plan_schema"] == "eda.native-program/v1"
+    assert by_id["native.execute"]["accepts_context"] is True
+    assert by_id["native.execute"]["returns_context"] is True
+    assert "plan.scope.read_paths" in by_id["native.execute"]["input_schema"]["derived_fields"]
+    assert "plan.effect" in by_id["native.execute"]["input_schema"]["agent_required"]
+    for operation in (
+        "layout.export_image",
+        "model.apply",
+        "project.inspect",
+        "workspace.abort",
+        "workspace.begin",
+        "workspace.promote",
+        "workspace.reconcile",
+        "workspace.rollback",
+        "workspace.status",
+    ):
+        assert "input_schema" in by_id[operation]
+    assert (
+        "installation selector"
+        in by_id["docs.query"]["input_schema"]["field_descriptions"]["instance"]
+    )
+    assert by_id["project.inspect"]["input_schema"]["field_descriptions"]["project"] == (
+        "Exact .aedt project filesystem path"
+    )
+    assert by_id["workspace.promote"]["input_schema"]["required"] == [
+        "workspace",
+        "expected_workspace_revision",
+        "output",
+    ]
     for operation in ("layout.build", "layout.solve", "model.apply"):
         shortcut = by_id[operation]["compiled_shortcut"]
         assert shortcut["implements_asset_id"]
@@ -716,8 +765,8 @@ def test_service_executes_live_patch_synchronously_without_job_spawn(tmp_path, m
     )
     sentinel = SimpleNamespace(status="passed")
     monkeypatch.setattr(
-        runtime_adapter,
-        "build_runtime",
+        service,
+        "runtime_factory",
         lambda _ledger: SimpleNamespace(execute=lambda _request: sentinel),
     )
     monkeypatch.setattr(
@@ -757,7 +806,7 @@ def test_degraded_experience_disables_shortcuts_but_not_native_execution(monkeyp
             "reason": "asset hash mismatch",
         },
     )
-    monkeypatch.setattr(runtime_adapter, "_native_batch_available", lambda: True)
+    monkeypatch.setattr(runtime_adapter, "_native_program_available", lambda: True)
 
     operations = {
         item["id"]: item
@@ -766,7 +815,12 @@ def test_degraded_experience_disables_shortcuts_but_not_native_execution(monkeyp
         ]
     }
     assert operations["layout.build"]["state"]["available"] is False
-    assert operations["native.batch"]["state"]["available"] is True
+    assert operations["native.execute"]["state"]["available"] is True
+    assert operations["experience.get"]["input_schema"]["one_of"][1]["required"] == [
+        "version",
+        "profile",
+        "capability",
+    ]
 
 
 def test_service_queries_docs_synchronously_without_creating_job(tmp_path):

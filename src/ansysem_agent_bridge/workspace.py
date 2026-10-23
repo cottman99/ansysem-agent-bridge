@@ -156,13 +156,9 @@ def load_workspace(workspace: str | Path) -> tuple[Path, dict[str, Any]]:
 
 
 def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+    from eda_bridge_runtime.jobs import _pid_is_alive
+
+    return _pid_is_alive(pid)
 
 
 def _boot_id() -> str | None:
