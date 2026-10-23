@@ -96,8 +96,10 @@ def _choose_tree_item(identity: dict[str, Any]) -> dict[str, Any] | None:
     frame.pack(fill="both", expand=True)
     branch = " / ".join(identity["selection"]["path"])
     ttk.Label(frame, text=branch, wraplength=570).pack(anchor="w")
-    ttk.Label(frame, text="Choose the item to copy:").pack(anchor="w", pady=(12, 6))
-    items = tk.Listbox(frame, exportselection=False, activestyle="dotbox")
+    ttk.Label(frame, text="Choose items to copy (click to select or deselect):").pack(
+        anchor="w", pady=(12, 6)
+    )
+    items = tk.Listbox(frame, selectmode=tk.MULTIPLE, exportselection=False, activestyle="dotbox")
     for choice in choices:
         base_depth = len(identity["selection"]["path"])
         items.insert("end", " / ".join(choice["path"][base_depth:]))
@@ -107,29 +109,46 @@ def _choose_tree_item(identity: dict[str, Any]) -> dict[str, Any] | None:
     def accept(_event=None):
         indexes = items.curselection()
         if indexes:
-            selected.append(choices[indexes[0]])
+            selected.extend(choices[index] for index in indexes)
             root.destroy()
 
     buttons = ttk.Frame(frame)
     buttons.pack(fill="x", pady=(12, 0))
+    ttk.Button(buttons, text="Select all", command=lambda: items.selection_set(0, "end")).pack(
+        side="left"
+    )
+    ttk.Button(buttons, text="Clear", command=lambda: items.selection_clear(0, "end")).pack(
+        side="left", padx=8
+    )
     ttk.Button(buttons, text="Cancel", command=root.destroy).pack(side="right")
     ttk.Button(buttons, text="Copy", command=accept).pack(side="right", padx=8)
-    items.bind("<Double-Button-1>", accept)
     root.bind("<Return>", accept)
     root.bind("<Escape>", lambda _event: root.destroy())
     root.mainloop()
     if not selected:
         return None
-    choice = selected[0]
-    _verify_tree_item(identity, choice["path"])
-    identity["selection"]["path"] = choice["path"]
-    identity["selection"]["name"] = choice["name"]
+    return _apply_tree_selection(identity, selected)
+
+
+def _apply_tree_selection(
+    identity: dict[str, Any], selected: list[dict[str, Any]]
+) -> dict[str, Any]:
+    if not selected:
+        raise ValueError("Select at least one item to copy.")
+    _verify_tree_items(identity, [choice["path"] for choice in selected])
+    identity["selection"]["items"] = [
+        {"name": choice["name"], "path": list(choice["path"])} for choice in selected
+    ]
+    # Preserve the original single-item fields; multi-item path denotes the branch.
+    if len(selected) == 1:
+        identity["selection"]["path"] = list(selected[0]["path"])
+        identity["selection"]["name"] = selected[0]["name"]
     identity["selection"]["chosen_by"] = "user"
     return identity
 
 
-def _verify_tree_item(identity: dict[str, Any], path: list[str]) -> None:
-    """Recheck the chosen path; do not rely on focus after the picker was opened."""
+def _verify_tree_items(identity: dict[str, Any], paths: list[list[str]]) -> None:
+    """Recheck every chosen path in one session before copying any of them."""
     import ansys.aedt.core
 
     desktop = ansys.aedt.core.Desktop(
@@ -155,10 +174,12 @@ def _verify_tree_item(identity: dict[str, Any], path: list[str]) -> None:
                 for d in project.GetDesigns()
                 if str(d.GetName()).split(";")[-1] == identity["design"]
             )
-        for name in path[2:]:
-            if name not in list(owner.GetChildNames()):
-                raise ValueError("The selected item has changed; copy its context again.")
-            owner = owner.GetChildObject(name)
+        for path in paths:
+            node = owner
+            for name in path[2:]:
+                if name not in list(node.GetChildNames()):
+                    raise ValueError("The selected item has changed; copy its context again.")
+                node = node.GetChildObject(name)
     finally:
         desktop.release_desktop(close_projects=False, close_on_exit=False)
 

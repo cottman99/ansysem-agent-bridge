@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0a3 - 2026-10-24
+
+- Select multiple project-tree items and copy their complete paths in one plaintext Context.
+- Toggle items with a click, or use Select all and Clear; retain single-item compatibility.
+- Verify every selected item in one AEDT connection before changing the clipboard.
+- Include illustrated Ansys, ADS, and Agent-input instructions with Linux native evidence.
+
 ## 0.3.0a2 - 2026-10-23
 
 - Copy readable project/design Context JSON from the AEDT Automation tab.
