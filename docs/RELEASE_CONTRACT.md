@@ -47,9 +47,11 @@ synthetic and independently redistributable.
 ## Deliberately unclaimed
 
 The governed native lane is not a hostile-code sandbox and initially targets
-official HFSS 3D Layout PyAEDT on supported POSIX hosts. The alpha does not
+official HFSS 3D Layout PyAEDT on supported Windows and Linux hosts. The alpha does not
 claim complete HFSS, Maxwell, Q3D, SIwave, Icepak, Circuit,
 Twin Builder, arbitrary geometry or port families, meshing strategies, solver
 features outside the maintained explicit-sweep contract, packaging, publishing,
 release creation, or general GUI automation. HFSS 3D Layout build, solve, and
 mutation transactions are limited to their versioned certified workflow schemas.
+
+The native backend registry now distinguishes live/background HFSS 3D Layout and offline PyEDB. Process supervision is portable and does not depend on POSIX signals. Real EDA acceptance is recorded per platform and mode; portability alone does not prove every installation.

@@ -99,6 +99,7 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
         "bondwire_matches",
         "bondwire_projected_length",
         "bondwire_profile_height",
+        "bondwire_apex_endpoint",
         "bondwire_endpoint_in_conductor",
         "bondwire_obstacle_clearance",
         "bondwire_pairwise_clearance",
@@ -199,6 +200,7 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
             "bondwire_matches": {"name", "expected"},
             "bondwire_projected_length": {"name", "value_um", "tolerance_um"},
             "bondwire_profile_height": {"name", "value_um", "tolerance_um"},
+            "bondwire_apex_endpoint": {"name", "value"},
             "bondwire_endpoint_in_conductor": {"name", "endpoint", "conductor"},
             "bondwire_obstacle_clearance": {"name", "obstacles", "minimum_um"},
             "bondwire_pairwise_clearance": {"minimum_um"},
@@ -253,6 +255,11 @@ def validate_operation_plan(plan: dict[str, Any]) -> None:
             "end",
         }:
             raise ValueError("bondwire endpoint must be start or end.")
+        if assertion["type"] == "bondwire_apex_endpoint" and assertion["value"] not in {
+            "start",
+            "end",
+        }:
+            raise ValueError("bondwire apex endpoint must be start or end.")
         if assertion["type"] == "bondwire_obstacle_clearance" and (
             not isinstance(assertion["obstacles"], list) or not assertion["obstacles"]
         ):

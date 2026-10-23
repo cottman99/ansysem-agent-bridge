@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -135,9 +136,22 @@ def ensure_profile_process(profile_id: str | None, argv: list[str]) -> dict[str,
         python_paths + ([existing_pythonpath] if existing_pythonpath else [])
     )
     environment["ANSYSEM_ACTIVE_PROFILE"] = fingerprint
+    arguments = [str(executable), "-m", "ansysem_agent_bridge.cli", *argv]
+    if sys.platform == "win32":
+        # Windows CRT exec does not preserve redirected Runtime protocol pipes.
+        # Keep this launcher alive and explicitly inherit the original handles.
+        completed = subprocess.run(
+            arguments,
+            env=environment,
+            stdin=sys.__stdin__,
+            stdout=sys.__stdout__,
+            stderr=sys.__stderr__,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        raise SystemExit(completed.returncode)
     os.execve(
         str(executable),
-        [str(executable), "-m", "ansysem_agent_bridge.cli", *argv],
+        arguments,
         environment,
     )
     raise RuntimeError("Controlled runtime profile relaunch returned unexpectedly.")

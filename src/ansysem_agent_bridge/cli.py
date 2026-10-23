@@ -15,22 +15,13 @@ from .capabilities import capability_map
 from .config import agent_home, load_config, remove_profile, upsert_instance, upsert_profile
 from .discovery import _instance_id, discover_installations, select_installation
 from .docs_backend import docs_status, get_doc, query_docs
-from .live_probe import live_hfss3dlayout_probe
-from .operations import export_layout_image
 from .profiles import ensure_profile_process, parse_assignment, profile_status
 from .project_bundle import inspect_project_bundle
-from .runtime import runtime_snapshot
 from .skill_installer import install_skills, skill_status, uninstall_skills
-from .transaction import execute_operation_plan, load_operation_plan
+from .transaction import load_operation_plan
 from .workspace import (
-    abort_workspace,
-    begin_workspace,
     load_workspace,
     load_workspace_patch,
-    promote_workspace,
-    reconcile_workspace,
-    rollback_workspace,
-    workspace_status,
 )
 
 
@@ -51,6 +42,11 @@ def _docs_root(explicit: str | None, instance: str | None) -> Path:
     installation = select_installation(instance)
     if installation.docs_root:
         return Path(installation.docs_root).expanduser().resolve()
+    from .docs_ingest import discover_docs_root
+
+    discovered = discover_docs_root(installation.root)
+    if discovered:
+        return discovered
     raise ValueError(
         "No documentation root configured; pass --docs-root or run setup with --docs-root."
     )
@@ -76,6 +72,12 @@ def _setup(args: argparse.Namespace) -> dict[str, Any]:
         "executable": str(executable) if executable else None,
         "docs_root": str(Path(args.docs_root).expanduser().resolve()) if args.docs_root else None,
     }
+    from .docs_ingest import discover_docs_root, ensure_docs
+
+    docs_root = Path(record["docs_root"]) if record["docs_root"] else discover_docs_root(root)
+    docs = ensure_docs(docs_root, version=version) if docs_root else {"status": "source_missing"}
+    if docs_root:
+        record["docs_root"] = str(docs_root)
     config = upsert_instance(record, make_default=not args.no_default)
     skills = {"status": "skipped"}
     if not args.skip_skill:
@@ -85,6 +87,7 @@ def _setup(args: argparse.Namespace) -> dict[str, Any]:
         "instance": record,
         "skills": skills,
         "config": config,
+        "docs": docs,
     }
 
 
@@ -252,6 +255,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     docs = commands.add_parser("docs")
     docs_sub = docs.add_subparsers(dest="docs_command", required=True)
+    symbol = docs_sub.add_parser("symbol")
+    symbol.add_argument("query")
+    symbol.add_argument("--sdk", choices=["pyaedt", "pyedb"], default="pyaedt")
+    symbol.add_argument("--limit", type=int, default=6)
     docs_status_parser = docs_sub.add_parser("status")
     docs_status_parser.add_argument("--docs-root")
     docs_status_parser.add_argument("--instance")
@@ -285,6 +292,9 @@ def build_parser() -> argparse.ArgumentParser:
         "runtime", help="Submit and observe durable AnsysEM jobs over local or SSH stdio."
     )
     runtime_sub = runtime.add_subparsers(dest="runtime_command", required=True)
+    runtime_execute = runtime_sub.add_parser("execute")
+    runtime_execute.add_argument("--request", type=Path, required=True)
+    runtime_execute.add_argument("--ledger", type=Path)
     runtime_serve = runtime_sub.add_parser("serve")
     runtime_serve.add_argument("--jobs", type=Path)
     runtime_serve.add_argument("--ledger", type=Path)
@@ -316,6 +326,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _execute_cli(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Translate CLI arguments into the same request used by MCP and SSH."""
+    import uuid
+
+    from eda_bridge_runtime import RequestEnvelope
+
+    from .runtime_adapter import _OPERATIONS, build_runtime, default_ledger_path
+
+    mutates = _OPERATIONS[operation]["mutates"]
+    response = build_runtime(default_ledger_path()).execute(
+        RequestEnvelope(
+            purpose="Execute the requested AnsysEM CLI operation: " + operation,
+            target={"eda": "ansys-electronics-desktop"},
+            operation=operation,
+            payload={**payload, "mutating": mutates},
+            idempotency_key="cli-" + uuid.uuid4().hex if mutates else None,
+        )
+    )
+    if response.status != "passed":
+        return {"status": response.status, "error": response.error, "run_id": response.run_id}
+    return response.result["data"]["bridge"]
+
+
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "context-addin":
         from .context_addin import install, refresh, status, uninstall
@@ -340,6 +373,15 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             serve,
         )
 
+        if args.runtime_command == "execute":
+            from eda_bridge_runtime import RequestEnvelope
+
+            from .runtime_adapter import build_runtime
+
+            envelope = RequestEnvelope.from_dict(
+                json.loads(args.request.read_text(encoding="utf-8"))
+            )
+            return build_runtime(args.ledger or default_ledger_path()).execute(envelope).to_dict()
         jobs_path = args.jobs or default_jobs_path()
         if args.runtime_command == "serve":
             # main() redirects vendor chatter to stderr to protect the normal
@@ -417,105 +459,61 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             ),
         }
     if args.command == "runtime-snapshot":
-        if args.live:
-            if not args.project or not args.version:
-                raise ValueError("--live requires --project and --version.")
-            return live_hfss3dlayout_probe(
-                project=args.project,
-                version=args.version,
-                design=args.design,
-                port=args.port,
-                new_desktop=not args.reuse_existing,
-                close_desktop=not args.leave_open,
-                validate=args.validate,
-                redact_paths=args.redact_paths,
-                since_revision=args.since_revision,
-            )
-        return runtime_snapshot(
-            installation_id=args.instance,
-            version=args.version,
-            project=args.project,
-            design=args.design,
-            editor=args.editor,
-            lane=args.lane,
-            display=args.display,
-            docs_root=args.docs_root,
-            since_revision=args.since_revision,
-            redact_paths=args.redact_paths,
+        return _execute_cli(
+            "runtime.snapshot",
+            {key: value for key, value in vars(args).items() if key not in {"command", "pretty"}},
         )
     if args.command == "layout":
-        return export_layout_image(
-            project=args.project,
-            version=args.version,
-            design=args.design,
-            port=args.port,
-            output=args.output,
-            width=args.width,
-            height=args.height,
-            redact_paths=args.redact_paths,
+        return _execute_cli(
+            "layout.export_image",
+            {key: value for key, value in vars(args).items() if key not in {"command", "pretty"}},
         )
     if args.command == "model":
+        payload = {"redact_paths": args.redact_paths, "profile": args.profile}
         if args.model_command == "apply":
             plan = load_operation_plan(args.plan)
-            plan_profile = plan.get("profile")
-            if args.profile and plan_profile and args.profile != plan_profile:
-                raise ValueError(f"Profile mismatch: command={args.profile} plan={plan_profile}")
-            if args.redact_paths:
-                plan["redact_paths"] = True
-            return execute_operation_plan(plan)
-        if args.workspace_command == "begin":
+            if args.profile and plan.get("profile") and args.profile != plan["profile"]:
+                raise ValueError("Command profile differs from the plan profile")
+            return _execute_cli("model.apply", {**payload, "plan": plan})
+        action = args.workspace_command
+        payload["workspace"] = str(args.workspace)
+        if action == "begin":
             if bool(args.aedt_sha256) != bool(args.edb_definition_sha256):
-                raise ValueError(
-                    "--aedt-sha256 and --edb-definition-sha256 must be supplied together."
-                )
-            fingerprint = None
-            if args.aedt_sha256:
-                fingerprint = {
-                    "aedt_sha256": args.aedt_sha256,
-                    "edb_definition_sha256": args.edb_definition_sha256,
-                }
-            selected_profile = args.profile or load_config().get("default_profile")
-            return begin_workspace(
-                source_project=args.source,
-                workspace=args.workspace,
+                raise ValueError("Both source fingerprints must be supplied together")
+            payload.update(
+                source=str(args.source),
                 adapter=args.adapter,
                 version=args.version,
                 design=args.design,
-                profile=selected_profile,
                 workspace_id=args.workspace_id,
-                source_fingerprint=fingerprint,
-                redact_paths=args.redact_paths,
             )
-        if args.workspace_command == "status":
-            return workspace_status(args.workspace, redact_paths=args.redact_paths)
-        if args.workspace_command == "reconcile":
-            patch = load_workspace_patch(args.plan)
-            if args.redact_paths:
-                patch["redact_paths"] = True
-            return reconcile_workspace(args.workspace, patch, redact_paths=args.redact_paths)
-        if args.workspace_command == "rollback":
-            return rollback_workspace(
-                args.workspace,
-                expected_workspace_revision=args.expected_revision,
-                redact_paths=args.redact_paths,
-            )
-        if args.workspace_command == "abort":
-            return abort_workspace(
-                args.workspace,
-                expected_workspace_revision=args.expected_revision,
-                redact_paths=args.redact_paths,
-            )
-        return promote_workspace(
-            args.workspace,
-            output_project=args.output,
-            expected_workspace_revision=args.expected_revision,
-            promotion_id=args.promotion_id,
-            redact_paths=args.redact_paths,
-            retain_candidate=args.retain_candidate,
-        )
+            if args.aedt_sha256:
+                payload["source_fingerprint"] = {
+                    "aedt_sha256": args.aedt_sha256,
+                    "edb_definition_sha256": args.edb_definition_sha256,
+                }
+        elif action == "reconcile":
+            payload["patch"] = load_workspace_patch(args.plan)
+        elif action in {"rollback", "abort", "promote"}:
+            payload["expected_workspace_revision"] = args.expected_revision
+            if action == "promote":
+                payload.update(
+                    output=str(args.output),
+                    promotion_id=args.promotion_id,
+                    retain_candidate=args.retain_candidate,
+                )
+        return _execute_cli("workspace." + action, payload)
     if args.command == "docs":
+        if args.docs_command == "symbol":
+            from .sdk_docs import describe
+
+            return describe(args.query, sdk=args.sdk, limit=args.limit)
         root = _docs_root(args.docs_root, args.instance)
-        if args.docs_command in {"status", "ensure"}:
+        if args.docs_command == "ensure":
+            from .docs_ingest import ensure_docs
+
+            return ensure_docs(root)
+        if args.docs_command == "status":
             return docs_status(root)
         if args.docs_command == "query":
             return query_docs(root, args.query, module=args.module, limit=args.limit)

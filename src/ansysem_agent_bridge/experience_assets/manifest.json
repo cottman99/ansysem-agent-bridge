@@ -7,7 +7,7 @@
     {
       "id": "ansysem.model.apply-transaction",
       "path": "action_patterns/model-apply.md",
-      "sha256": "ef493002b88c40450dc7dd8901a37e2bbf84efe4f495942caab7bc00bc29cb41",
+      "sha256": "38d389520db1aa0bc39410fece6d7ccd4e4320d0892d3dab2121897c79e12ba8",
       "kind": "action_pattern",
       "status": "validated",
       "summary": "Apply a bounded registered model plan to a staged AEDT project and accept it only after fresh-reopen assertions."
@@ -27,6 +27,38 @@
       "kind": "workflow",
       "status": "validated",
       "summary": "Run a bounded HFSS 3D Layout solve job and validate expected native result artifacts without overwriting the source."
+    },
+    {
+      "id": "ansysem.odb.intake-audit",
+      "path": "action_patterns/odb-intake-audit.md",
+      "sha256": "34e91506000b6d931b0ab1651a533d26953e3f3d595925a70d81f463566899ee",
+      "kind": "action_pattern",
+      "status": "validated",
+      "summary": "Inventory an ODB++ archive before importing it, and separate present electrical data from absent fabrication facts."
+    },
+    {
+      "id": "ansysem.hfss3dlayout.gap-port-reference",
+      "path": "action_patterns/gap-port-reference.md",
+      "sha256": "00ec0702620455645cc48d35ddda38b06c67893725bc5eaf5c8bca428cdbe517",
+      "kind": "action_pattern",
+      "status": "validated",
+      "summary": "Compile an explicit HFSS 3D Layout terminal map into local-reference Gap ports and fresh-reopen assertions."
+    },
+    {
+      "id": "ansysem.hfss3dlayout.bondwire-realisation",
+      "path": "action_patterns/bondwire-realisation.md",
+      "sha256": "7cca63987a1de1f4fe3cc5f0c74acf39273d35e0ff1b50da2f44bc5744a8b8cc",
+      "kind": "action_pattern",
+      "status": "validated",
+      "summary": "Compile explicit bondwire endpoints and APD profiles, then verify the realised 3D shape instead of trusting names or direction flags."
+    },
+    {
+      "id": "ansysem.hfss3dlayout.solution-observe",
+      "path": "action_patterns/solution-observe.md",
+      "sha256": "d937a8fa54ff4218a0dd709da1bf6a01d18a2fc62242870851d02f5f41913e22",
+      "kind": "action_pattern",
+      "status": "validated",
+      "summary": "Read an exact persisted HFSS 3D Layout solution without starting a solver, and return bounded pure-JSON numerical evidence."
     }
   ]
 }

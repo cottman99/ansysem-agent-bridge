@@ -68,7 +68,7 @@ contain the private path or either fingerprint. Legacy contexts remain usable by
 operations that do not require content materialization; governed native
 continuation requires a newly captured content-bound record.
 
-For `native.batch`, the trusted Bridge may materialize the fixed runtime,
+For `native.execute`, the trusted Bridge may materialize the fixed runtime,
 resource kind, bound version/design selectors, the one source read path, and the
 mutation source fingerprint. Any explicit conflicting value is rejected. The
 Bridge never infers effect, write paths, artifacts, transaction strategy,

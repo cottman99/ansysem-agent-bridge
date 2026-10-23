@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import secrets
 import sqlite3
 import time
@@ -120,13 +119,9 @@ class OwnedSessionStore:
 
 
 def _pid_is_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+    from eda_bridge_runtime.jobs import _pid_is_alive as process_alive
+
+    return process_alive(pid)
 
 
 def _open_existing_desktop(*, version: str, port: int):

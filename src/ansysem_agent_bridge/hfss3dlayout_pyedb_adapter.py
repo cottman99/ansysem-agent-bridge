@@ -564,6 +564,18 @@ class Hfss3dLayoutPyedbNativeAdapter:
                 expected,
                 actual,
             )
+        elif kind == "bondwire_apex_endpoint":
+            points = polylines[assertion["name"]]
+            first_xy_step = math.dist(points[0][:2], points[1][:2])
+            last_xy_step = math.dist(points[-2][:2], points[-1][:2])
+            tolerance = 1e-6
+            if first_xy_step <= tolerance < last_xy_step:
+                actual = "start"
+            elif last_xy_step <= tolerance < first_xy_step:
+                actual = "end"
+            else:
+                actual = "ambiguous"
+            expected = assertion["value"]
         elif kind == "bondwire_endpoint_in_conductor":
             state = _wire_state(wires[assertion["name"]])
             point = tuple(state[f"{assertion['endpoint']}_xy_um"])

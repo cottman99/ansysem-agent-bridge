@@ -8,7 +8,7 @@ on:
       tag:
         description: Existing release tag to publish
         required: true
-        default: v0.2.0a12
+        default: v0.3.0a1
 
 permissions:
   contents: read
@@ -75,7 +75,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY"
+        run: |
+          (cd dist && sha256sum *.whl *.tar.gz > SHA256SUMS)
+          gh release upload "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY"
 
   verify_release:
     needs: [build, publish_pypi]
